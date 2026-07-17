@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+/*
+ * Job Search design system — foundation tokens
+ *
+ * Components consume semantic names (surface, primary, success…), never a
+ * palette step. This keeps future brand and dark-mode changes local to this file.
+ */
+:root {
+  color-scheme: light;
+
+  /* Surfaces and content */
+  --background: oklch(0.982 0.004 255);
+  --foreground: oklch(0.205 0.025 263);
+  --surface: oklch(0.965 0.006 255);
+  --surface-raised: oklch(1 0 0);
+  --surface-overlay: oklch(1 0 0);
+  --muted: oklch(0.945 0.008 255);
+  --muted-foreground: oklch(0.49 0.025 260);
+  --subtle-foreground: oklch(0.62 0.02 260);
+
+  /* Structure and interaction */
+  --border: oklch(0.895 0.012 255);
+  --border-strong: oklch(0.82 0.018 255);
+  --input: oklch(0.865 0.014 255);
+  --ring: oklch(0.57 0.19 264);
+
+  /* Brand */
+  --primary: oklch(0.54 0.19 264);
+  --primary-hover: oklch(0.49 0.2 264);
+  --primary-active: oklch(0.45 0.2 264);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-subtle: oklch(0.95 0.025 264);
+  --primary-subtle-hover: oklch(0.925 0.04 264);
+
+  /* Semantic feedback */
+  --success: oklch(0.46 0.13 154);
+  --success-foreground: oklch(0.3 0.09 154);
+  --success-subtle: oklch(0.95 0.035 154);
+  --warning: oklch(0.62 0.15 73);
+  --warning-foreground: oklch(0.39 0.1 67);
+  --warning-subtle: oklch(0.96 0.045 80);
+  --info: oklch(0.52 0.14 240);
+  --info-foreground: oklch(0.36 0.11 240);
+  --info-subtle: oklch(0.95 0.035 240);
+  --destructive: oklch(0.56 0.21 27);
+  --destructive-hover: oklch(0.51 0.21 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --destructive-subtle: oklch(0.95 0.035 27);
+
+  /* Application shell */
+  --sidebar: oklch(0.18 0.035 265);
+  --sidebar-foreground: oklch(0.96 0.008 255);
+  --sidebar-muted: oklch(0.71 0.025 258);
+  --sidebar-accent: oklch(0.255 0.045 265);
+  --sidebar-border: oklch(0.29 0.04 265);
+
+  /* Shape, elevation and motion */
+  --shape-sm: 0.5rem;
+  --shape-md: 0.75rem;
+  --shape-lg: 1rem;
+  --shape-xl: 1.25rem;
+  --elevation-xs: 0 1px 2px rgb(19 30 55 / 0.04);
+  --elevation-card: 0 1px 2px rgb(19 30 55 / 0.04), 0 6px 18px rgb(19 30 55 / 0.035);
+  --elevation-overlay: 0 18px 48px rgb(19 30 55 / 0.14);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-card: var(--surface-raised);
+  --color-card-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-subtle-hover: var(--primary-subtle-hover);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-subtle: var(--info-subtle);
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --radius-sm: var(--shape-sm);
+  --radius-md: var(--shape-md);
+  --radius-lg: var(--shape-lg);
+  --radius-xl: var(--shape-xl);
+  --shadow-xs: var(--elevation-xs);
+  --shadow-card: var(--elevation-card);
+  --shadow-overlay: var(--elevation-overlay);
+
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    min-width: 320px;
+    background: var(--background);
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  ::selection {
+    background: var(--primary-subtle-hover);
+    color: var(--foreground);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

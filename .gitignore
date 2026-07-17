@@ -1,0 +1,21 @@
+# env
+.env
+.env.local
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+
+# uploads (CV files, attachments)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# misc
+.DS_Store
