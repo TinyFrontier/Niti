@@ -10,6 +10,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { ModeToggle } from "@/shared/ui/mode-toggle";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -39,7 +40,8 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4"><ModeToggle /></div>
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">

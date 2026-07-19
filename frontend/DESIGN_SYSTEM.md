@@ -1,6 +1,17 @@
 # Job Search design system
 
-Foundation v0.1 defines the shared visual language for the product redesign. The living component catalog is available at `/design-system` after signing in.
+Foundation v0.2 defines the shared visual language for the product redesign. The living component catalog is available at `/design-system` after signing in.
+
+## Reference principles
+
+The system uses the ecosystem the team likes:
+
+- **Kumo:** the runtime component library and theme engine. Versioned components provide Base UI accessibility, semantic surfaces, responsive sidebar, overlays and form controls.
+- **shadcn/ui + Efferd:** optional source-owned blocks when Kumo has no suitable product composition.
+- **Bklit:** a dedicated visualization layer with reusable chart utilities instead of one-off SVG/CSS charts.
+- **XYFlow:** reserved for a future interactive application pipeline or relationship map where node-based interaction creates real product value.
+
+`components.json` remains available for exceptional shadcn/Efferd blocks and the `@bklit` registry. Registry code must be reviewed before use; it is not the default primitive layer.
 
 ## Direction
 
@@ -16,13 +27,14 @@ Foundation v0.1 defines the shared visual language for the product redesign. The
 
 ### 1. Foundation tokens
 
-Tokens live in `src/index.css` and are exposed to Tailwind through `@theme inline`.
+Kumo owns the canonical light/dark semantic tokens. Product aliases live in `src/index.css` and are exposed to Tailwind through `@theme inline`.
 
 - Surface: `background`, `surface`, `surface-raised`, `surface-overlay`
 - Content: `foreground`, `muted-foreground`, `subtle-foreground`
 - Structure: `border`, `border-strong`, `input`, `ring`
 - Brand: `primary`, `primary-hover`, `primary-active`, `primary-subtle`
 - Feedback: `success`, `warning`, `info`, `destructive` and their subtle variants
+- Data visualization: `chart-1` through `chart-5`, ordered by emphasis
 - Shell: `sidebar`, `sidebar-foreground`, `sidebar-muted`, `sidebar-accent`
 - Shape/elevation: four radii and three shadow levels
 
@@ -30,15 +42,16 @@ Product code must use semantic utilities such as `bg-warning-subtle` or `text-su
 
 ### 2. Primitives
 
-Shared components live in `src/shared/ui`:
+Runtime primitives come from `@cloudflare/kumo`. Files in `src/shared/ui` are compatibility adapters that preserve the current feature API while delegating rendering and interaction to Kumo:
 
-- `Button`: six hierarchy variants and six sizes
-- `Badge`: compact semantic state labels
-- `Card`: default, muted, outline, and interactive containers
-- `Input`, `Select`, `Textarea`, `Label`, `FormField`: one form contract
-- `Alert`: contextual semantic feedback
-- `EmptyState`, `Skeleton`: system states
-- `BrandMark`: one product signature across shell and authentication
+- Kumo `Button`, `Badge`, `LayerCard`, `Input`, `Select`, `Textarea`, `Label`, `Field`, `Banner`, `Empty`, `SkeletonLine`
+- Kumo `Sidebar` for desktop, collapsed and mobile navigation
+- Kumo `DropdownMenu` for the theme selector
+- `BrandMark` remains product-owned because it represents identity rather than a reusable UI primitive
+
+## Theme modes
+
+`ThemeProvider` supports `light`, `dark`, and `system`, persists the choice in `localStorage`, reacts to OS theme changes, and applies Kumo's `data-mode` contract before React starts to prevent a flash of the wrong theme.
 
 ### 3. Composition rules
 
@@ -52,15 +65,15 @@ Shared components live in `src/shared/ui`:
 ## Accessibility contract
 
 - Interactive controls have visible keyboard focus.
-- Standard controls are at least 40px high; compact controls are only for dense secondary actions.
+- Use Kumo's base size for desktop forms and `lg` for prominent or touch-first actions; compact sizes are only for dense secondary actions.
 - Color is paired with text or iconography for status communication.
 - Reduced-motion preferences disable non-essential transitions.
 - Icon-only buttons require an accessible label.
 
 ## Next iteration
 
-1. Migrate repeated feature-level field wrappers to `FormField`.
-2. Replace remaining direct palette utilities with semantic tokens.
-3. Redesign dashboard information architecture using the new primitives.
-4. Add overlay primitives (dialog, dropdown, toast) when product flows require them.
-5. Add a dark theme only after the light redesign is stable.
+1. Migrate repeated feature-level field wrappers to Kumo's integrated `label`, `description`, and `error` props.
+2. Replace the temporary native-option compatibility API with direct `Select.Option` usage feature by feature.
+3. Redesign dashboard information architecture using Kumo cards and Bklit charts.
+4. Adopt Kumo dialogs, tooltips and toasts as the related product flows are redesigned.
+5. Validate whether the application pipeline needs Kumo `Flow` or the richer XYFlow canvas.

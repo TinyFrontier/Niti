@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -84,12 +84,12 @@ function CommunicationItem({
           <p className="whitespace-pre-wrap text-sm text-muted-foreground">{log.body}</p>
         )}
         {log.next_follow_up_at && (
-          <p className="mt-1 text-xs font-medium text-amber-600">
+          <p className="mt-1 text-xs font-medium text-warning-foreground">
             Follow up by {format(new Date(log.next_follow_up_at), "d MMM yyyy")}
           </p>
         )}
       </div>
-      <Button variant="ghost" size="icon" title="Delete" onClick={onDelete}>
+      <Button variant="ghost" size="icon-sm" title="Delete" aria-label="Delete communication" onClick={onDelete}>
         <Trash2 className="size-3.5 text-muted-foreground" />
       </Button>
     </li>
@@ -122,6 +122,7 @@ export function ContactDetailPage() {
 
   const {
     register: field,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
@@ -256,23 +257,35 @@ export function ContactDetailPage() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="flex flex-col gap-1.5">
                     <Label>Channel</Label>
-                    <Select {...field("channel")}>
-                      {COMM_CHANNELS.map((c) => (
-                        <option key={c} value={c}>
-                          {humanize(c)}
-                        </option>
-                      ))}
-                    </Select>
+                    <Controller
+                      name="channel"
+                      control={control}
+                      render={({ field: selectField }) => (
+                        <Select {...selectField}>
+                          {COMM_CHANNELS.map((c) => (
+                            <option key={c} value={c}>
+                              {humanize(c)}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label>Direction</Label>
-                    <Select {...field("direction")}>
-                      {COMM_DIRECTIONS.map((d) => (
-                        <option key={d} value={d}>
-                          {humanize(d)}
-                        </option>
-                      ))}
-                    </Select>
+                    <Controller
+                      name="direction"
+                      control={control}
+                      render={({ field: selectField }) => (
+                        <Select {...selectField}>
+                          {COMM_DIRECTIONS.map((d) => (
+                            <option key={d} value={d}>
+                              {humanize(d)}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label>When</Label>

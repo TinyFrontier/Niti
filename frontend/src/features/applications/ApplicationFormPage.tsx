@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -45,6 +45,7 @@ export function ApplicationFormPage() {
 
   const {
     register: field,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -84,41 +85,59 @@ export function ApplicationFormPage() {
           <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Vacancy *</Label>
-              <Select {...field("vacancy_id")}>
-                <option value="">Select a vacancy...</option>
-                {vacancies?.items.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.title}
-                    {v.company ? ` — ${v.company.name}` : ""}
-                  </option>
-                ))}
-              </Select>
+              <Controller
+                name="vacancy_id"
+                control={control}
+                render={({ field: selectField }) => (
+                  <Select {...selectField}>
+                    <option value="">Select a vacancy...</option>
+                    {vacancies?.items.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.title}
+                        {v.company ? ` — ${v.company.name}` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              />
               {errors.vacancy_id && (
                 <p className="text-xs text-destructive">{errors.vacancy_id.message}</p>
               )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>CV version</Label>
-              <Select {...field("cv_version_id")}>
-                <option value="">No CV linked</option>
-                {cvVersions?.items.map((cv) => (
-                  <option key={cv.id} value={cv.id}>
-                    {cv.title}
-                    {cv.language ? ` (${cv.language})` : ""}
-                  </option>
-                ))}
-              </Select>
+              <Controller
+                name="cv_version_id"
+                control={control}
+                render={({ field: selectField }) => (
+                  <Select {...selectField}>
+                    <option value="">No CV linked</option>
+                    {cvVersions?.items.map((cv) => (
+                      <option key={cv.id} value={cv.id}>
+                        {cv.title}
+                        {cv.language ? ` (${cv.language})` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
                 <Label>Status</Label>
-                <Select {...field("status")}>
-                  {APPLICATION_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {humanize(s)}
-                    </option>
-                  ))}
-                </Select>
+                <Controller
+                  name="status"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      {APPLICATION_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {humanize(s)}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Applied on</Label>

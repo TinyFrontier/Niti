@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +41,7 @@ export function InterviewFormPage() {
 
   const {
     register: field,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -80,15 +81,21 @@ export function InterviewFormPage() {
           <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Application *</Label>
-              <Select {...field("application_id")}>
-                <option value="">Select an application...</option>
-                {applications?.items.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.vacancy.title}
-                    {a.vacancy.company ? ` — ${a.vacancy.company.name}` : ""}
-                  </option>
-                ))}
-              </Select>
+              <Controller
+                name="application_id"
+                control={control}
+                render={({ field: selectField }) => (
+                  <Select {...selectField}>
+                    <option value="">Select an application...</option>
+                    {applications?.items.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.vacancy.title}
+                        {a.vacancy.company ? ` — ${a.vacancy.company.name}` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              />
               {errors.application_id && (
                 <p className="text-xs text-destructive">{errors.application_id.message}</p>
               )}
@@ -107,13 +114,19 @@ export function InterviewFormPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Format</Label>
-                <Select {...field("format")}>
-                  {INTERVIEW_FORMATS.map((f) => (
-                    <option key={f} value={f}>
-                      {humanize(f)}
-                    </option>
-                  ))}
-                </Select>
+                <Controller
+                  name="format"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      {INTERVIEW_FORMATS.map((f) => (
+                        <option key={f} value={f}>
+                          {humanize(f)}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">

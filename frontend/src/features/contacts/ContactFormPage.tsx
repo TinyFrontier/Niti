@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -75,6 +75,7 @@ export function ContactFormPage() {
 
   const {
     register: field,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -140,34 +141,52 @@ export function ContactFormPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Type">
-                <Select {...field("contact_type")}>
-                  {CONTACT_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {humanize(t)}
-                    </option>
-                  ))}
-                </Select>
+                <Controller
+                  name="contact_type"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      {CONTACT_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {humanize(t)}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </Field>
               <Field label="Status">
-                <Select {...field("status")}>
-                  {CONTACT_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {humanize(s)}
-                    </option>
-                  ))}
-                </Select>
+                <Controller
+                  name="status"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      {CONTACT_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {humanize(s)}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Company">
-                <Select {...field("company_id")}>
-                  <option value="">No company</option>
-                  {companies?.items.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
+                <Controller
+                  name="company_id"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      <option value="">No company</option>
+                      {companies?.items.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </Field>
               <Field label="Position">
                 <Input placeholder="Tech Recruiter" {...field("position")} />

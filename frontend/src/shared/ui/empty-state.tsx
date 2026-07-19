@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { Empty } from "@cloudflare/kumo/components/empty";
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -9,13 +10,13 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border-strong bg-surface/45 px-6 py-12 text-center">
-      <div className="mb-4 flex size-11 items-center justify-center rounded-lg bg-primary-subtle text-primary">
-        <Icon className="size-5" />
-      </div>
-      <p className="text-sm font-semibold">{title}</p>
-      {description && <p className="mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
-    </div>
+    <Empty
+      size="sm"
+      icon={<Icon className="size-6" />}
+      title={title}
+      description={description}
+      contents={action}
+      className="rounded-lg border border-dashed border-kumo-line bg-kumo-recessed/40"
+    />
   );
 }

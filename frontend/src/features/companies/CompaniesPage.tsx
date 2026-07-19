@@ -19,7 +19,7 @@ export function Rating({ value }: { value: number | null }) {
         <Star
           key={i}
           className={
-            i < value ? "size-3.5 fill-amber-400 text-amber-400" : "size-3.5 text-border"
+            i < value ? "size-3.5 fill-warning text-warning" : "size-3.5 text-border"
           }
         />
       ))}

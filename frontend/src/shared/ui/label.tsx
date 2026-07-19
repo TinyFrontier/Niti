@@ -1,11 +1,1 @@
-import * as React from "react";
-import { cn } from "@/shared/lib/utils";
-
-export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label
-      className={cn("text-sm font-medium leading-none text-foreground", className)}
-      {...props}
-    />
-  );
-}
+export { Label } from "@cloudflare/kumo/components/label";

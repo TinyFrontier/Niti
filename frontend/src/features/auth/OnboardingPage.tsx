@@ -4,7 +4,9 @@ import { Briefcase, Layers, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getMe, updateMe, type UserRole } from "@/features/auth/api";
 import { cn } from "@/shared/lib/utils";
+import { BrandMark } from "@/shared/ui/brand-mark";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { ModeToggle } from "@/shared/ui/mode-toggle";
 
 interface RoleCard {
   role: UserRole;
@@ -20,21 +22,21 @@ const ROLE_CARDS: RoleCard[] = [
     icon: Briefcase,
     title: "Job Seeker",
     description: "Track vacancies, applications, CV versions and interviews in one place.",
-    accent: "bg-blue-100 text-blue-600",
+    accent: "bg-info-subtle text-info",
   },
   {
     role: "recruiter",
     icon: Users,
     title: "Recruiter",
     description: "Run a contacts CRM: candidates, companies, communication and follow-ups.",
-    accent: "bg-emerald-100 text-emerald-600",
+    accent: "bg-success-subtle text-success",
   },
   {
     role: "mix",
     icon: Layers,
     title: "Mix",
     description: "Both worlds — search for a job while managing your whole network.",
-    accent: "bg-violet-100 text-violet-600",
+    accent: "bg-primary-subtle text-primary",
   },
 ];
 
@@ -63,10 +65,9 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
-      <div className="mb-2 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-        <Briefcase className="size-6" />
-      </div>
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-6">
+      <div className="absolute right-4 top-4"><ModeToggle /></div>
+      <BrandMark className="mb-3 size-12 rounded-lg" iconClassName="size-5" />
       <h1 className="text-2xl font-semibold tracking-tight">
         Welcome{user?.full_name ? `, ${user.full_name}` : ""}!
       </h1>
@@ -79,15 +80,15 @@ export function OnboardingPage() {
             disabled={mutation.isPending}
             onClick={() => mutation.mutate(role)}
             className={cn(
-              "group flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 text-center shadow-sm transition-all",
-              "hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg",
+              "group flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-raised p-8 text-center shadow-card transition-all",
+              "hover:-translate-y-1 hover:border-primary/40 hover:shadow-overlay",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-60",
             )}
           >
             <div
               className={cn(
-                "flex size-14 items-center justify-center rounded-2xl transition-transform group-hover:scale-110",
+                "flex size-14 items-center justify-center rounded-lg transition-transform group-hover:scale-105",
                 accent,
               )}
             >

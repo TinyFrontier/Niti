@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +47,7 @@ export function CompanyFormPage() {
 
   const {
     register: field,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -122,14 +123,20 @@ export function CompanyFormPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Interest (1-5)</Label>
-                <Select {...field("rating")}>
-                  <option value="">Not rated</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </Select>
+                <Controller
+                  name="rating"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      <option value="">Not rated</option>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
