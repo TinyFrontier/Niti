@@ -71,7 +71,7 @@ export function OnboardingPage() {
       <h1 className="text-2xl font-semibold tracking-tight">
         Welcome{user?.full_name ? `, ${user.full_name}` : ""}!
       </h1>
-      <p className="mt-1 text-muted-foreground">How are you going to use Job Search CRM?</p>
+      <p className="mt-1 text-muted-foreground">How are you going to use Niti?</p>
 
       <div className="mt-8 grid w-full max-w-4xl gap-4 sm:grid-cols-3">
         {ROLE_CARDS.map(({ role, icon: Icon, title, description, accent }) => (

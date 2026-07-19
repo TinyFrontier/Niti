@@ -47,7 +47,7 @@ export function LoginPage() {
           <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Briefcase className="size-5" />
           </div>
-          <CardTitle className="text-xl">Job Search CRM</CardTitle>
+          <CardTitle className="text-xl">Niti</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
