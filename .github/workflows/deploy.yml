@@ -69,6 +69,6 @@ jobs:
              git checkout main; \
              git pull --ff-only origin main; \
              git rev-parse HEAD; \
-             docker compose -f infrastructure/compose.yaml config --quiet; \
-             docker compose -f infrastructure/compose.yaml up -d --build --remove-orphans --wait --wait-timeout 180; \
-             docker compose -f infrastructure/compose.yaml ps"
+             docker compose --env-file .env -f infrastructure/compose.yaml config --quiet; \
+             docker compose --env-file .env -f infrastructure/compose.yaml up -d --build --remove-orphans --wait --wait-timeout 180; \
+             docker compose --env-file .env -f infrastructure/compose.yaml ps"
