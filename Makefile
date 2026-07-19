@@ -1,10 +1,10 @@
 .PHONY: db-up db-down compose-up compose-down compose-logs install migrate revision seed backend frontend test lint
 
 db-up:
-	docker compose -f infrastructure/compose.yaml up -d postgres redis
+	docker compose -f infrastructure/compose.yaml up -d postgres
 
 db-down:
-	docker compose -f infrastructure/compose.yaml stop postgres redis
+	docker compose -f infrastructure/compose.yaml stop postgres
 
 compose-up:
 	docker compose -f infrastructure/compose.yaml up -d --build

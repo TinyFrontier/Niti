@@ -29,8 +29,6 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 postgres-data/
 postgres_data/
-redis-data/
-redis_data/
 acme.json
 **/acme.json
 
