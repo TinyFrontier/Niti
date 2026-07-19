@@ -1,0 +1,74 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST"
+          test -n "$SSH_PRIVATE_KEY"
+          [[ "$SSH_HOST" =~ ^[a-zA-Z0-9.:-]+$ ]]
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" > ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+
+      - name: Pull and rebuild application
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/niti' }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$DEPLOY_PATH"
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
+          [[ "$SSH_USER" =~ ^[a-zA-Z0-9._-]+$ ]]
+          [[ "$DEPLOY_PATH" =~ ^/[a-zA-Z0-9._/-]+$ ]]
+
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=4 \
+            "$SSH_USER@$SSH_HOST" \
+            "set -eu; \
+             cd '$DEPLOY_PATH'; \
+             test -f .env; \
+             test -z \"\$(git status --porcelain)\"; \
+             git fetch origin main; \
+             git checkout main; \
+             git pull --ff-only origin main; \
+             git rev-parse HEAD; \
+             docker compose -f infrastructure/compose.yaml config --quiet; \
+             docker compose -f infrastructure/compose.yaml up -d --build --remove-orphans --wait --wait-timeout 180; \
+             docker compose -f infrastructure/compose.yaml ps"

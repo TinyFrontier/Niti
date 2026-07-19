@@ -153,6 +153,52 @@ htpasswd -nbB admin 'strong-dashboard-password'           # Basic Auth
 сделать резервную копию PostgreSQL; миграции применяются автоматически при
 старте backend.
 
+## Автодеплой через GitHub Actions
+
+Workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+запускается после каждого push в `main` и вручную через `workflow_dispatch`.
+Он подключается к VPS по SSH, выполняет fast-forward-only обновление ветки и
+пересобирает Compose-окружение. Одновременно может выполняться только один
+production-деплой.
+
+Один раз подготовьте VPS:
+
+```bash
+sudo mkdir -p /opt/niti
+sudo chown "$USER":"$USER" /opt/niti
+git clone git@github.com:TinyFrontier/Niti.git /opt/niti
+cd /opt/niti
+cp .env.example .env
+# Заполните production-значения в .env
+docker compose -f infrastructure/compose.yaml up -d --build
+```
+
+Пользователь деплоя должен иметь доступ к Docker без `sudo` и право читать
+репозиторий; на VPS нужен Docker Compose 2.18 или новее. Для приватного
+репозитория добавьте отдельный read-only deploy key в GitHub и настройте этот
+ключ на VPS.
+
+Workflow использует уже существующие repository secrets из **Settings → Secrets
+and variables → Actions**:
+
+| Secret | Значение |
+| --- | --- |
+| `SSH_HOST` | IP или DNS-имя VPS |
+| `SSH_USER` | непривилегированный SSH-пользователь |
+| `SSH_PRIVATE_KEY` | приватный SSH-ключ, чей public key находится в `authorized_keys` на VPS |
+
+Дополнительные repository variables необязательны:
+
+- `DEPLOY_PATH` — путь к репозиторию на VPS, по умолчанию `/opt/niti`;
+- `SSH_PORT` — SSH-порт, по умолчанию `22`.
+
+Workflow получает host key через `ssh-keyscan` перед подключением. Для более
+строгой защиты его можно позднее заменить заранее закреплённым fingerprint.
+
+Файл `.env` не обновляется и не перезаписывается workflow. Если рабочая копия на
+VPS содержит незакоммиченные изменения или не может быть обновлена через
+fast-forward, деплой завершится ошибкой вместо перезаписи файлов.
+
 ## Маршрутизация и TLS
 
 Traefik использует Docker Provider для обнаружения сервисов и File Provider для
