@@ -1,21 +1,51 @@
-# env
+# Environment and secrets
 .env
-.env.local
+.env.*
+!.env.example
+!**/.env.example
 
-# python
-__pycache__/
-*.pyc
+# Python
 .venv/
-.ruff_cache/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
-# node
+# Node / frontend builds
 node_modules/
+**/node_modules/
 dist/
+**/dist/
+.vite/
+*.tsbuildinfo
 
-# uploads (CV files, attachments)
+# Runtime data
 backend/uploads/*
 !backend/uploads/.gitkeep
+postgres-data/
+postgres_data/
+redis-data/
+redis_data/
+acme.json
+**/acme.json
 
-# misc
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+.tmp/
+tmp/
+
+# IDE / OS metadata
 .DS_Store
+.idea/
+.vscode/

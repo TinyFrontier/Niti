@@ -1,0 +1,146 @@
+name: niti
+
+services:
+  traefik:
+    image: traefik:v3.7
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yaml:/etc/traefik/traefik.yaml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik_acme:/letsencrypt
+    environment:
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${LETSENCRYPT_EMAIL:?Set LETSENCRYPT_EMAIL in .env}
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "${DOCKER_NETWORK_NAME:-niti}"
+      traefik.http.routers.traefik.rule: "Host(`${TRAEFIK_HOST:-traefik.useniti.xyz}`)"
+      traefik.http.routers.traefik.entrypoints: websecure
+      traefik.http.routers.traefik.tls: "true"
+      traefik.http.routers.traefik.tls.certresolver: letsencrypt
+      traefik.http.routers.traefik.service: api@internal
+      traefik.http.routers.traefik.middlewares: dashboard-auth,security-headers@file
+      traefik.http.middlewares.dashboard-auth.basicauth.users: "${TRAEFIK_DASHBOARD_AUTH_USERS:?Set TRAEFIK_DASHBOARD_AUTH_USERS in .env}"
+    networks:
+      - niti
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        VITE_API_URL: "https://${API_HOST:-api.useniti.xyz}"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      backend:
+        condition: service_healthy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "${DOCKER_NETWORK_NAME:-niti}"
+      traefik.http.routers.frontend.rule: "Host(`${FRONTEND_HOST:-useniti.xyz}`)"
+      traefik.http.routers.frontend.entrypoints: websecure
+      traefik.http.routers.frontend.tls: "true"
+      traefik.http.routers.frontend.tls.certresolver: letsencrypt
+      traefik.http.routers.frontend.middlewares: security-headers@file
+      traefik.http.services.frontend.loadbalancer.server.port: "8080"
+    networks:
+      - niti
+
+  backend:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      CORS_ORIGINS: '["https://${FRONTEND_HOST:-useniti.xyz}"]'
+      UPLOAD_DIR: /app/uploads
+      REDIS_URL: "redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379/0"
+      BACKEND_WORKERS: ${BACKEND_WORKERS:-2}
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "${DOCKER_NETWORK_NAME:-niti}"
+      traefik.http.routers.backend.rule: "Host(`${API_HOST:-api.useniti.xyz}`)"
+      traefik.http.routers.backend.entrypoints: websecure
+      traefik.http.routers.backend.tls: "true"
+      traefik.http.routers.backend.tls.certresolver: letsencrypt
+      traefik.http.routers.backend.middlewares: security-headers@file
+      traefik.http.services.backend.loadbalancer.server.port: "8000"
+    networks:
+      - niti
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-niti}
+      POSTGRES_USER: ${POSTGRES_USER:-niti}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - niti
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}"
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - niti
+
+networks:
+  niti:
+    name: ${DOCKER_NETWORK_NAME:-niti}
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
+  traefik_acme:
