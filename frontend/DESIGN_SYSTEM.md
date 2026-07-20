@@ -1,4 +1,4 @@
-# Job Search design system
+# Niti design system
 
 Foundation v0.2 defines the shared visual language for the product redesign. The living component catalog is available at `/design-system` after signing in.
 
@@ -15,10 +15,10 @@ The system uses the ecosystem the team likes:
 
 ## Direction
 
-**Career workspace, not generic admin.** The UI should feel focused, calm, and optimistic while remaining efficient for dense CRM workflows.
+**Niti is a career workspace, not generic admin.** The UI should feel focused, calm, and optimistic while remaining efficient for dense CRM workflows.
 
 - Neutral blue-grey surfaces keep long sessions comfortable.
-- Indigo is reserved for navigation, focus, and primary actions.
+- Niti blue (`#2B69EE`) is reserved for navigation, focus, and primary actions.
 - Semantic feedback colors communicate meaning, never decoration.
 - Typography uses a compact scale and strong page hierarchy.
 - Layout favors readable content width, deliberate grouping, and generous section spacing.

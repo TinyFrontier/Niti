@@ -3,13 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Briefcase } from "lucide-react";
 import { login } from "@/features/auth/api";
 import { tokenStorage, ApiError } from "@/shared/api/client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { BrandLogo } from "@/shared/ui/brand-logo";
 import { ModeToggle } from "@/shared/ui/mode-toggle";
 
 const schema = z.object({
@@ -44,10 +44,8 @@ export function LoginPage() {
       <div className="absolute right-4 top-4"><ModeToggle /></div>
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Briefcase className="size-5" />
-          </div>
-          <CardTitle className="text-xl">Niti</CardTitle>
+          <BrandLogo className="mb-3 h-11" />
+          <CardTitle className="text-xl">Welcome back</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>

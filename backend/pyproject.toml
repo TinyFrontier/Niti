@@ -1,7 +1,7 @@
 [project]
 name = "job-search-backend"
 version = "0.1.0"
-description = "Job Search CRM API"
+description = "Niti career workspace API"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

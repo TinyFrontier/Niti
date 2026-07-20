@@ -54,7 +54,7 @@ export function DesignSystemPage() {
     <div>
       <PageHeader
         title="Design system"
-        description="The shared visual language and interaction contract for Job Search. Foundation v0.1."
+        description="The shared visual language and interaction contract for Niti. Foundation v0.2."
         actions={<Badge variant="info">Internal reference</Badge>}
       />
 

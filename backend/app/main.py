@@ -17,7 +17,7 @@ from app.vacancies.router import router as vacancies_router
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="Job Search CRM API", version="0.1.0")
+    app = FastAPI(title="Niti API", version="0.1.0")
 
     app.add_middleware(
         CORSMiddleware,

@@ -4,7 +4,7 @@ import { Briefcase, Layers, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getMe, updateMe, type UserRole } from "@/features/auth/api";
 import { cn } from "@/shared/lib/utils";
-import { BrandMark } from "@/shared/ui/brand-mark";
+import { BrandLogo } from "@/shared/ui/brand-logo";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { ModeToggle } from "@/shared/ui/mode-toggle";
 
@@ -67,7 +67,7 @@ export function OnboardingPage() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-6">
       <div className="absolute right-4 top-4"><ModeToggle /></div>
-      <BrandMark className="mb-3 size-12 rounded-lg" iconClassName="size-5" />
+      <BrandLogo className="mb-4 h-12" />
       <h1 className="text-2xl font-semibold tracking-tight">
         Welcome{user?.full_name ? `, ${user.full_name}` : ""}!
       </h1>

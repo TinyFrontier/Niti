@@ -10,6 +10,15 @@
  * interaction state is owned by @cloudflare/kumo.
  */
 :root {
+  --brand-blue: #2b69ee;
+  --brand-blue-hover: #245bd1;
+  --brand-blue-active: #1d4fbd;
+  --brand-ink: #0b1731;
+  --color-kumo-brand: var(--brand-blue);
+  --color-kumo-brand-hover: var(--brand-blue-hover);
+  --color-kumo-focus: var(--brand-blue);
+  --text-color-kumo-brand: var(--brand-blue);
+
   --background: var(--color-kumo-canvas);
   --foreground: var(--text-color-kumo-default);
   --surface: var(--color-kumo-recessed);
@@ -28,11 +37,11 @@
   --border: var(--color-kumo-hairline);
   --border-strong: var(--color-kumo-line);
   --input: var(--color-kumo-line);
-  --ring: var(--color-kumo-focus);
+  --ring: var(--brand-blue);
 
-  --primary: var(--color-kumo-brand);
-  --primary-hover: var(--color-kumo-brand-hover);
-  --primary-active: var(--color-kumo-brand-hover);
+  --primary: var(--brand-blue);
+  --primary-hover: var(--brand-blue-hover);
+  --primary-active: var(--brand-blue-active);
   --primary-foreground: white;
   --primary-subtle: color-mix(in oklch, var(--color-kumo-brand) 10%, var(--color-kumo-base));
   --primary-subtle-hover: color-mix(in oklch, var(--color-kumo-brand) 16%, var(--color-kumo-base));
@@ -51,7 +60,7 @@
   --destructive-foreground: white;
   --destructive-subtle: color-mix(in oklch, var(--color-kumo-danger-tint) 65%, transparent);
 
-  --chart-1: var(--color-kumo-brand);
+  --chart-1: var(--brand-blue);
   --chart-2: var(--color-kumo-success);
   --chart-3: var(--color-kumo-warning);
   --chart-4: var(--color-kumo-info);

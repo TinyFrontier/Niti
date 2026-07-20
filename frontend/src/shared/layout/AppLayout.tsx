@@ -70,7 +70,7 @@ export function AppLayout() {
           <div className="flex min-w-0 items-center gap-2.5 px-1">
             <BrandMark className="size-8" />
             <div className="min-w-0 group-data-[state=collapsed]/sidebar:hidden">
-              <p className="truncate text-sm font-semibold text-kumo-strong">Job Search</p>
+              <p className="truncate text-sm font-semibold text-kumo-strong">Niti</p>
               <p className="truncate text-xs text-kumo-subtle">Career workspace</p>
             </div>
           </div>
@@ -137,7 +137,8 @@ export function AppLayout() {
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-kumo-hairline bg-kumo-canvas/90 px-4 backdrop-blur-lg md:hidden">
           <div className="flex items-center gap-2">
             <Sidebar.Trigger />
-            <span className="text-sm font-semibold text-kumo-strong">Job Search</span>
+            <BrandMark className="size-7" />
+            <span className="text-sm font-semibold text-kumo-strong">Niti</span>
           </div>
           <ModeToggle />
         </header>
