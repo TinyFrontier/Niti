@@ -61,10 +61,16 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
       CORS_ORIGINS: '["https://${FRONTEND_HOST:-useniti.xyz}"]'
       UPLOAD_DIR: /app/uploads
       BACKEND_WORKERS: ${BACKEND_WORKERS:-2}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      API_BASE_URL: "https://${API_HOST:-api.useniti.xyz}"
+      FRONTEND_URL: "https://${FRONTEND_HOST:-useniti.xyz}"
+      COOKIE_DOMAIN: ".${FRONTEND_HOST:-useniti.xyz}"
+      COOKIE_SECURE: "true"
+      DEBUG: "false"
     volumes:
       - backend_uploads:/app/uploads
     depends_on:

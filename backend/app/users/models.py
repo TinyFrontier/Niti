@@ -10,7 +10,8 @@ class User(UUIDPkMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # null for accounts created via Google sign-in (no local password)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     full_name: Mapped[str | None] = mapped_column(String(255))
     # null until the user picks a role in onboarding
     role: Mapped[UserRole | None] = mapped_column(str_enum(UserRole))
