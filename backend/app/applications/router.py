@@ -6,14 +6,22 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.applications.models import Application
-from app.applications.schemas import ApplicationCreate, ApplicationOut, ApplicationUpdate
+from app.applications.models import Application, ApplicationStatusHistory
+from app.applications.schemas import (
+    ApplicationCreate,
+    ApplicationOut,
+    ApplicationUpdate,
+    StatusHistoryOut,
+)
+from app.applications.service import record_status_change
 from app.auth.dependencies import CurrentUser, DbSession
 from app.common.crud import get_owned_or_404, paginate
 from app.common.enums import ApplicationStatus
 from app.common.schemas import PageDep, PageOut
 from app.companies.models import Company
 from app.cv_versions.models import CVVersion
+from app.events.names import APPLICATION_CREATED
+from app.events.service import record_event
 from app.vacancies.models import Vacancy
 
 router = APIRouter()
@@ -102,6 +110,13 @@ def create_application(
         notes=data.notes,
     )
     db.add(application)
+    record_status_change(db, application, None, data.status, current_user.id)
+    record_event(
+        db,
+        APPLICATION_CREATED,
+        user_id=current_user.id,
+        properties={"status": data.status.value},
+    )
     db.commit()
     return _get_loaded(db, application.id, current_user.id)
 
@@ -119,12 +134,31 @@ def update_application(
 ) -> Application:
     application = get_owned_or_404(db, Application, application_id, current_user.id)
     updates = data.model_dump(exclude_unset=True)
+    if "status" in updates and updates["status"] is None:
+        raise HTTPException(status_code=422, detail="status cannot be null")
     if updates.get("cv_version_id") is not None:
         get_owned_or_404(db, CVVersion, updates["cv_version_id"], current_user.id)
+    old_status = application.status
     for key, value in updates.items():
         setattr(application, key, value)
+    if "status" in updates and application.status != old_status:
+        record_status_change(db, application, old_status, application.status, current_user.id)
     db.commit()
     return _get_loaded(db, application.id, current_user.id)
+
+
+@router.get("/{application_id}/status-history", response_model=list[StatusHistoryOut])
+def get_status_history(
+    application_id: uuid.UUID, current_user: CurrentUser, db: DbSession
+) -> list[ApplicationStatusHistory]:
+    get_owned_or_404(db, Application, application_id, current_user.id)
+    return list(
+        db.scalars(
+            select(ApplicationStatusHistory)
+            .where(ApplicationStatusHistory.application_id == application_id)
+            .order_by(ApplicationStatusHistory.changed_at.asc(), ApplicationStatusHistory.id)
+        ).all()
+    )
 
 
 @router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)

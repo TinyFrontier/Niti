@@ -6,9 +6,9 @@ import {
   APPLICATION_STATUSES,
   deleteApplication,
   getApplication,
-  updateApplication,
   type ApplicationStatus,
 } from "@/features/applications/api";
+import { useStatusMutation } from "@/features/applications/board/useStatusMutation";
 import { StatusBadge } from "@/features/applications/StatusBadge";
 import { NotesCard } from "@/features/notes/NotesCard";
 import { PageHeader } from "@/shared/layout/PageHeader";
@@ -41,10 +41,7 @@ export function ApplicationDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["applications"] });
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
   };
-  const statusMutation = useMutation({
-    mutationFn: (status: ApplicationStatus) => updateApplication(id!, { status }),
-    onSuccess: invalidate,
-  });
+  const statusMutation = useStatusMutation();
   const deleteMutation = useMutation({
     mutationFn: () => deleteApplication(id!),
     onSuccess: () => {
@@ -89,7 +86,9 @@ export function ApplicationDetailPage() {
                   className="h-8 w-44"
                   value={application.status}
                   disabled={statusMutation.isPending}
-                  onChange={(e) => statusMutation.mutate(e.target.value as ApplicationStatus)}
+                  onChange={(e) =>
+                    statusMutation.mutate({ id: id!, status: e.target.value as ApplicationStatus })
+                  }
                 >
                   {APPLICATION_STATUSES.map((s) => (
                     <option key={s} value={s}>

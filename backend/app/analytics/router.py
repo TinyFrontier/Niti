@@ -1,14 +1,16 @@
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
-from app.applications.models import Application
+from app.applications.models import Application, ApplicationStatusHistory
 from app.auth.dependencies import CurrentUser, DbSession
 from app.common.enums import ACTIVE_APPLICATION_STATUSES, ApplicationStatus, TaskStatus
 from app.cv_versions.models import CVVersion
+from app.events.models import Event
+from app.events.names import USER_REGISTERED, VACANCY_SAVED
 from app.interviews.models import Interview
 from app.tasks.models import Task
 from app.vacancies.models import Vacancy
@@ -16,7 +18,8 @@ from app.vacancies.models import Vacancy
 router = APIRouter()
 
 # ordinal rank of each status in the pipeline; terminal negatives rank as "applied"
-# (without a status-history table we only know the current status — good enough for MVP)
+# (the funnel walks application_status_history, so every stage an application ever
+# reached counts — not just its current status)
 _FUNNEL_RANK: dict[ApplicationStatus, int] = {
     ApplicationStatus.APPLIED: 1,
     ApplicationStatus.IN_REVIEW: 1,
@@ -134,17 +137,28 @@ def applications_by_source(current_user: CurrentUser, db: DbSession) -> list[Cou
 
 @router.get("/funnel", response_model=list[CountItem])
 def funnel(current_user: CurrentUser, db: DbSession) -> list[CountItem]:
-    """Applications that reached each stage or further, judged by current status."""
-    counts = _status_counts(db, current_user.id)
-    result = []
-    for label, stage_rank in _FUNNEL_STAGES:
-        reached = sum(
-            count
-            for status_value, count in counts.items()
-            if _FUNNEL_RANK.get(status_value, 0) >= stage_rank
+    """Applications that reached each stage or further, judged by full status history."""
+    rows = db.execute(
+        select(ApplicationStatusHistory.application_id, ApplicationStatusHistory.to_status)
+        .join(Application, Application.id == ApplicationStatusHistory.application_id)
+        .where(
+            ApplicationStatusHistory.user_id == current_user.id,
+            Application.deleted_at.is_(None),
         )
-        result.append(CountItem(label=label, count=reached))
-    return result
+        .distinct()
+    ).all()
+    max_rank: dict[uuid.UUID, int] = {}
+    for application_id, to_status in rows:
+        rank = _FUNNEL_RANK.get(to_status, 0)
+        if rank > max_rank.get(application_id, 0):
+            max_rank[application_id] = rank
+    return [
+        CountItem(
+            label=label,
+            count=sum(1 for rank in max_rank.values() if rank >= stage_rank),
+        )
+        for label, stage_rank in _FUNNEL_STAGES
+    ]
 
 
 class CVUsageItem(BaseModel):
@@ -169,3 +183,52 @@ def cv_usage(current_user: CurrentUser, db: DbSession) -> list[CVUsageItem]:
         CVUsageItem(cv_version_id=cv_id, title=title, applications_count=count)
         for cv_id, title, count in rows
     ]
+
+
+class ActivationOut(BaseModel):
+    registered: int
+    activated: int
+    rate: float
+
+
+_ACTIVATION_WINDOW = timedelta(minutes=10)
+
+
+@router.get("/activation", response_model=ActivationOut)
+def activation(current_user: CurrentUser, db: DbSession, window_days: int = 30) -> ActivationOut:
+    """Share of recently registered users who saved a vacancy within 10 minutes."""
+    since = datetime.now(UTC) - timedelta(days=window_days)
+
+    registrations = (
+        select(Event.user_id, func.min(Event.occurred_at).label("registered_at"))
+        .where(
+            Event.name == USER_REGISTERED,
+            Event.occurred_at >= since,
+            Event.user_id.is_not(None),
+        )
+        .group_by(Event.user_id)
+        .subquery("registrations")
+    )
+    first_saves = (
+        select(Event.user_id, func.min(Event.occurred_at).label("first_saved_at"))
+        .where(Event.name == VACANCY_SAVED, Event.user_id.is_not(None))
+        .group_by(Event.user_id)
+        .subquery("first_saves")
+    )
+
+    registered = db.scalar(select(func.count()).select_from(registrations)) or 0
+    activated = (
+        db.scalar(
+            select(func.count())
+            .select_from(registrations)
+            .join(first_saves, first_saves.c.user_id == registrations.c.user_id)
+            .where(
+                first_saves.c.first_saved_at
+                <= registrations.c.registered_at + _ACTIVATION_WINDOW
+            )
+        )
+        or 0
+    )
+
+    rate = activated / registered if registered else 0.0
+    return ActivationOut(registered=registered, activated=activated, rate=rate)

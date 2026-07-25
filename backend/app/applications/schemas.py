@@ -25,6 +25,15 @@ class ApplicationUpdate(BaseModel):
     notes: str | None = None
 
 
+class StatusHistoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    from_status: ApplicationStatus | None
+    to_status: ApplicationStatus
+    changed_at: datetime
+
+
 class ApplicationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

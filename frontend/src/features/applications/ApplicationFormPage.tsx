@@ -145,7 +145,7 @@ export function ApplicationFormPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Source</Label>
-                <Input placeholder="linkedin / hh / referral" {...field("source")} />
+                <Input placeholder="job board / referral / company website" {...field("source")} />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
