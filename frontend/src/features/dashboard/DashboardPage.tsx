@@ -15,6 +15,7 @@ import { listApplications } from "@/features/applications/api";
 import { StatusBadge } from "@/features/applications/StatusBadge";
 import { listInterviews } from "@/features/interviews/api";
 import { getAnalyticsSummary } from "@/features/dashboard/api";
+import { PasteLinkCard } from "@/features/vacancies/PasteLinkCard";
 import { Badge } from "@/shared/ui/badge";
 import { humanize } from "@/shared/lib/format";
 import { PageHeader } from "@/shared/layout/PageHeader";
@@ -96,6 +97,8 @@ export function DashboardPage() {
           Failed to load dashboard data. Check that the API is running.
         </div>
       )}
+
+      <PasteLinkCard source="dashboard" />
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">

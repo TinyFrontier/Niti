@@ -9,6 +9,7 @@ import {
   type Vacancy,
   type WorkFormat,
 } from "@/features/vacancies/api";
+import { PasteLinkCard } from "@/features/vacancies/PasteLinkCard";
 import { DataTable, type Column } from "@/shared/data-table/DataTable";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { PageHeader } from "@/shared/layout/PageHeader";
@@ -73,6 +74,7 @@ export function VacanciesPage() {
           </Button>
         }
       />
+      <PasteLinkCard source="vacancies" compact />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Input
           placeholder="Search by title or company..."
