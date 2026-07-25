@@ -4,6 +4,9 @@
 !.env.example
 !**/.env.example
 
+# Local product planning
+#ROADMAP.private.md
+
 # Python
 .venv/
 venv/

@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "frontend",
       "port": 5173
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "granian", "--interface", "asgi", "--port", "8000", "--reload", "app.main:app"],
+      "cwd": "backend",
+      "port": 8000
     }
   ]
 }

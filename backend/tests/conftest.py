@@ -1,3 +1,4 @@
+import os
 import uuid
 
 import pytest
@@ -9,8 +10,10 @@ import app.models  # noqa: F401
 from app.core.database import Base, get_db
 from app.main import create_app
 
+# Override to run isolated suites in parallel (each gets its own database).
+TEST_DB_NAME = os.environ.get("TEST_DATABASE_NAME", "jobsearch_test")
 ADMIN_URL = "postgresql+psycopg://jobsearch:jobsearch@localhost:5432/postgres"
-TEST_URL = "postgresql+psycopg://jobsearch:jobsearch@localhost:5432/jobsearch_test"
+TEST_URL = f"postgresql+psycopg://jobsearch:jobsearch@localhost:5432/{TEST_DB_NAME}"
 
 
 @pytest.fixture(scope="session")
@@ -18,10 +21,11 @@ def engine():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
         exists = conn.execute(
-            text("SELECT 1 FROM pg_database WHERE datname = 'jobsearch_test'")
+            text("SELECT 1 FROM pg_database WHERE datname = :name"),
+            {"name": TEST_DB_NAME},
         ).scalar()
         if not exists:
-            conn.execute(text("CREATE DATABASE jobsearch_test"))
+            conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
     admin.dispose()
 
     test_engine = create_engine(TEST_URL)
