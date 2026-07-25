@@ -12,6 +12,8 @@ from app.common.normalize import normalize_text, normalize_url
 from app.common.schemas import PageDep, PageOut
 from app.companies.models import Company
 from app.companies.service import get_or_create_company
+from app.events.names import VACANCY_SAVED
+from app.events.service import record_event
 from app.vacancies.duplicates import check_duplicates
 from app.vacancies.models import Vacancy, VacancySource
 from app.vacancies.schemas import (
@@ -102,6 +104,7 @@ def create_vacancy(data: VacancyCreate, current_user: CurrentUser, db: DbSession
         sources=_build_sources(data.sources),
     )
     db.add(vacancy)
+    record_event(db, VACANCY_SAVED, user_id=current_user.id, properties={"source": "manual"})
     db.commit()
     return _get_loaded(db, vacancy.id, current_user.id)
 
