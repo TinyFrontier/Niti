@@ -1,4 +1,4 @@
-import { api, API_URL, tokenStorage } from "@/shared/api/client";
+import { api, API_URL } from "@/shared/api/client";
 import type { Page } from "@/shared/api/types";
 
 export interface CVVersion {
@@ -42,7 +42,7 @@ export function deleteCVVersion(id: string) {
 
 export async function downloadCVFile(cv: CVVersion): Promise<void> {
   const response = await fetch(`${API_URL}/cv-versions/${cv.id}/file`, {
-    headers: { Authorization: `Bearer ${tokenStorage.get()}` },
+    credentials: "include",
   });
   if (!response.ok) throw new Error("Download failed");
   const blob = await response.blob();

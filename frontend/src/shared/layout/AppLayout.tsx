@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
 import {
   Briefcase,
@@ -14,8 +14,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { getMe, type UserRole } from "@/features/auth/api";
-import { tokenStorage } from "@/shared/api/client";
+import { getMe, logout as logoutRequest, type UserRole } from "@/features/auth/api";
 import { BrandMark } from "@/shared/ui/brand-mark";
 import { Button } from "@/shared/ui/button";
 import { ModeToggle } from "@/shared/ui/mode-toggle";
@@ -50,6 +49,7 @@ function isItemActive(pathname: string, item: NavItem) {
 
 export function AppLayout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { pathname } = useLocation();
   const { data: user } = useQuery({ queryKey: ["auth", "me"], queryFn: getMe });
   const sections: NavItem["section"][] = ["Workspace", "Network", "Account"];
@@ -58,8 +58,13 @@ export function AppLayout() {
     (item) => !item.roles || !user?.role || item.roles.includes(user.role),
   );
 
-  const logout = () => {
-    tokenStorage.clear();
+  const logout = async () => {
+    try {
+      await logoutRequest();
+    } catch {
+      // Session may already be gone — still clear local state and leave.
+    }
+    queryClient.clear();
     navigate("/login", { replace: true });
   };
 

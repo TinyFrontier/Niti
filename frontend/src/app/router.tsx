@@ -1,20 +1,64 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Link, Outlet } from "react-router-dom";
 import { OnboardingGate } from "@/features/auth/OnboardingGate";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { AppLayout } from "@/shared/layout/AppLayout";
 
+function NotFoundPage() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-6 text-center">
+      <h1 className="text-3xl font-semibold text-kumo-strong">404</h1>
+      <p className="text-sm text-muted-foreground">This page does not exist.</p>
+      <Link to="/" className="text-sm font-medium text-primary hover:underline">
+        Back to home
+      </Link>
+    </div>
+  );
+}
+
+function RootErrorPage() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-6 text-center">
+      <h1 className="text-xl font-semibold text-kumo-strong">Something went wrong</h1>
+      <p className="text-sm text-muted-foreground">An unexpected error occurred.</p>
+      <a href="/" className="text-sm font-medium text-primary hover:underline">
+        Reload the app
+      </a>
+    </div>
+  );
+}
+
 export const router = createBrowserRouter([
   {
-    path: "/login",
-    lazy: async () => ({ Component: (await import("@/features/auth/LoginPage")).LoginPage }),
-  },
-  {
-    path: "/register",
-    lazy: async () => ({ Component: (await import("@/features/auth/RegisterPage")).RegisterPage }),
-  },
-  {
-    element: <ProtectedRoute />,
+    element: <Outlet />,
+    errorElement: <RootErrorPage />,
     children: [
+      {
+        path: "/login",
+        lazy: async () => ({ Component: (await import("@/features/auth/LoginPage")).LoginPage }),
+      },
+      {
+        path: "/register",
+        lazy: async () => ({ Component: (await import("@/features/auth/RegisterPage")).RegisterPage }),
+      },
+      {
+        path: "/forgot-password",
+        lazy: async () => ({
+          Component: (await import("@/features/auth/ForgotPasswordPage")).ForgotPasswordPage,
+        }),
+      },
+      {
+        path: "/reset-password",
+        lazy: async () => ({
+          Component: (await import("@/features/auth/ResetPasswordPage")).ResetPasswordPage,
+        }),
+      },
+      {
+        path: "*",
+        element: <NotFoundPage />,
+      },
+      {
+        element: <ProtectedRoute />,
+        children: [
       {
         path: "/onboarding",
         lazy: async () => ({ Component: (await import("@/features/auth/OnboardingPage")).OnboardingPage }),
@@ -36,6 +80,10 @@ export const router = createBrowserRouter([
               {
                 path: "vacancies/new",
                 lazy: async () => ({ Component: (await import("@/features/vacancies/VacancyFormPage")).VacancyFormPage }),
+              },
+              {
+                path: "vacancies/import",
+                lazy: async () => ({ Component: (await import("@/features/vacancies/ImportPage")).ImportPage }),
               },
               {
                 path: "vacancies/:id",
@@ -120,6 +168,8 @@ export const router = createBrowserRouter([
               {
                 path: "design-system",
                 lazy: async () => ({ Component: (await import("@/features/design-system/DesignSystemPage")).DesignSystemPage }),
+              },
+                ],
               },
             ],
           },

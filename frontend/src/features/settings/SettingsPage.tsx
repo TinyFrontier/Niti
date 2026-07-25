@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Briefcase, Check, Layers, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getMe, updateMe, type UserRole } from "@/features/auth/api";
+import { SessionsSection } from "@/features/settings/SessionsSection";
 import { PageHeader } from "@/shared/layout/PageHeader";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -94,6 +95,8 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <SessionsSection />
     </div>
   );
 }
