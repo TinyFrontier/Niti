@@ -62,6 +62,55 @@ class UserRole(StrEnum):
     MIX = "mix"
 
 
+class Seniority(StrEnum):
+    INTERN = "intern"
+    JUNIOR = "junior"
+    MIDDLE = "middle"
+    SENIOR = "senior"
+    LEAD = "lead"
+    PRINCIPAL = "principal"
+    HEAD = "head"
+
+
+class SkillLevel(StrEnum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+    EXPERT = "expert"
+
+
+class LanguageLevel(StrEnum):
+    A1 = "a1"
+    A2 = "a2"
+    B1 = "b1"
+    B2 = "b2"
+    C1 = "c1"
+    C2 = "c2"
+    NATIVE = "native"
+
+
+class Relocation(StrEnum):
+    NO = "no"
+    MAYBE = "maybe"
+    YES = "yes"
+
+
+class SalaryPeriod(StrEnum):
+    YEAR = "year"
+    MONTH = "month"
+    DAY = "day"
+    HOUR = "hour"
+
+
+class ProfileFieldSource(StrEnum):
+    """Where a drafted profile field came from, so the UI can mark it unconfirmed."""
+
+    CV_AI = "cv_ai"
+    TEXT_AI = "text_ai"
+    # both sources were sent in one call, so the origin of a field is not separable
+    AI = "ai"
+
+
 class CVExtractionStatus(StrEnum):
     """Whether the CV's text could be read out of the uploaded document."""
 

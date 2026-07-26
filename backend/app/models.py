@@ -2,6 +2,7 @@
 
 from app.applications.models import Application, ApplicationStatusHistory
 from app.auth.models import AuthSession, PasswordResetToken, UserIdentity
+from app.career_profiles.models import CareerProfile
 from app.common.models import Attachment, EntityTag, Tag
 from app.companies.models import Company
 from app.contacts.models import CommunicationLog, Contact
@@ -21,6 +22,7 @@ __all__ = [
     "AuthSession",
     "Base",
     "CVVersion",
+    "CareerProfile",
     "CommunicationLog",
     "Company",
     "Contact",

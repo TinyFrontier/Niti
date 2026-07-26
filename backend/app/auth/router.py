@@ -27,9 +27,15 @@ from app.auth.sessions import (
     revoke_session,
     set_session_cookie,
 )
+from app.common.enums import UserRole
 from app.core.config import get_settings
 from app.core.security import generate_token, hash_password, hash_token, verify_password
-from app.events.names import ONBOARDING_COMPLETED, USER_LOGGED_IN, USER_REGISTERED
+from app.events.names import (
+    CAREER_PROFILE_SKIPPED,
+    ONBOARDING_COMPLETED,
+    USER_LOGGED_IN,
+    USER_REGISTERED,
+)
 from app.events.service import record_event
 from app.users.models import User
 
@@ -271,16 +277,53 @@ def me(current_user: CurrentUser) -> User:
 
 @router.patch("/me", response_model=UserOut)
 def update_me(data: UserUpdate, current_user: CurrentUser, db: DbSession) -> User:
-    role_before = current_user.role
-    for key, value in data.model_dump(exclude_unset=True).items():
+    fields = data.model_dump(exclude_unset=True)
+    grant_consent = fields.pop("ai_consent", None)
+    for key, value in fields.items():
         setattr(current_user, key, value)
-    if role_before is None and current_user.role is not None:
-        record_event(
-            db,
-            ONBOARDING_COMPLETED,
-            user_id=current_user.id,
-            properties={"role": current_user.role.value},
-        )
+    if grant_consent and current_user.ai_consent_at is None:
+        current_user.ai_consent_at = datetime.now(UTC)
+
+    # A recruiter has no career profile step, so picking the role is the whole of
+    # their onboarding. Job seekers finish it in /career-profile.
+    if current_user.role is UserRole.RECRUITER:
+        _finish_onboarding(db, current_user, skipped_at_step=None)
+
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.post("/onboarding/complete", response_model=UserOut)
+def complete_onboarding(
+    current_user: CurrentUser, db: DbSession, skipped_at_step: int | None = None
+) -> User:
+    """Let the user into the app.
+
+    Called when the profile is confirmed and when the user skips it — a skipped
+    profile is a normal state, not a blocked one.
+    """
+    _finish_onboarding(db, current_user, skipped_at_step=skipped_at_step)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+def _finish_onboarding(db: DbSession, user: User, *, skipped_at_step: int | None) -> None:
+    """Idempotent: the event fires once, on the transition."""
+    if user.onboarding_completed_at is not None:
+        return
+    user.onboarding_completed_at = datetime.now(UTC)
+    record_event(
+        db,
+        ONBOARDING_COMPLETED,
+        user_id=user.id,
+        properties={"role": user.role.value if user.role else None},
+    )
+    if skipped_at_step is not None:
+        record_event(
+            db,
+            CAREER_PROFILE_SKIPPED,
+            user_id=user.id,
+            properties={"step": skipped_at_step},
+        )

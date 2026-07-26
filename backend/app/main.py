@@ -7,6 +7,7 @@ from app.analytics.router import router as analytics_router
 from app.applications.router import router as applications_router
 from app.auth.router import router as auth_router
 from app.auth.sessions import SESSION_COOKIE
+from app.career_profiles.router import router as career_profile_router
 from app.companies.router import router as companies_router
 from app.contacts.router import router as contacts_router
 from app.core.config import get_settings
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
 
     app.include_router(importer_router, prefix="/vacancies/import", tags=["import"])
     app.include_router(cv_versions_router, prefix="/cv-versions", tags=["cv-versions"])
+    app.include_router(career_profile_router, prefix="/career-profile", tags=["career-profile"])
     app.include_router(applications_router, prefix="/applications", tags=["applications"])
     app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
     app.include_router(interviews_router, prefix="/interviews", tags=["interviews"])

@@ -20,6 +20,8 @@ class LoginIn(BaseModel):
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, max_length=255)
     role: UserRole | None = None
+    # only true is meaningful: consent is granted, never revoked through this field
+    ai_consent: bool | None = None
 
 
 class UserOut(BaseModel):
@@ -30,6 +32,8 @@ class UserOut(BaseModel):
     full_name: str | None
     role: UserRole | None
     created_at: datetime
+    onboarding_completed_at: datetime | None
+    ai_consent_at: datetime | None
 
 
 class TokenOut(BaseModel):

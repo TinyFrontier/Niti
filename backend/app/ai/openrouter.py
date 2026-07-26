@@ -14,11 +14,13 @@ import time
 
 import httpx
 
+from app.ai import schema
 from app.ai.provider import (
     INVALID_RESPONSE,
     NOT_CONFIGURED,
     RATE_LIMITED,
     TIMEOUT,
+    TRUNCATED,
     UNAVAILABLE,
     AIError,
     JSONRequest,
@@ -59,7 +61,7 @@ class OpenRouterProvider:
                 "json_schema": {
                     "name": request.schema_name,
                     "strict": False,
-                    "schema": request.schema,
+                    "schema": schema.for_provider(request.schema),
                 },
             },
             "max_tokens": request.max_tokens,
@@ -106,11 +108,28 @@ class OpenRouterProvider:
 def _unpack(response: httpx.Response) -> tuple[str, dict]:
     try:
         body = response.json()
-        content = body["choices"][0]["message"]["content"]
+        choice = body["choices"][0]
+        message = choice["message"]
+        content = message["content"]
     except (ValueError, KeyError, IndexError, TypeError) as exc:
         raise AIError(INVALID_RESPONSE, "AI provider returned an unexpected envelope") from exc
+
+    if isinstance(content, list):
+        # some providers answer with typed parts instead of a plain string
+        content = "".join(
+            part.get("text", "") for part in content if isinstance(part, dict)
+        )
+    if not content:
+        # A reasoning model spends the token budget on thinking and can return an
+        # empty answer. That is a budget problem, not a malformed one, and it
+        # deserves its own code so the caller can raise the cap or pick a model
+        # that does not think out loud.
+        if choice.get("finish_reason") == "length" or message.get("reasoning"):
+            raise AIError(TRUNCATED, "AI answer was cut off before any content")
+        raise AIError(INVALID_RESPONSE, "AI provider returned an empty answer")
     if not isinstance(content, str):
         raise AIError(INVALID_RESPONSE, "AI provider returned a non-text answer")
+
     usage = body.get("usage") or {}
     return content, usage if isinstance(usage, dict) else {}
 

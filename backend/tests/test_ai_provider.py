@@ -8,7 +8,7 @@ import httpx
 import pytest
 from pydantic import BaseModel, Field
 
-from app.ai import openrouter, prompt
+from app.ai import openrouter, prompt, schema
 from app.ai.mock import MockAIProvider
 from app.ai.openrouter import OpenRouterProvider
 from app.ai.provider import (
@@ -16,6 +16,7 @@ from app.ai.provider import (
     NOT_CONFIGURED,
     RATE_LIMITED,
     TIMEOUT,
+    TRUNCATED,
     UNAVAILABLE,
     AIError,
     JSONRequest,
@@ -217,6 +218,59 @@ def test_nothing_is_logged(configured, transport, caplog):
     assert SECRET not in caplog.text
 
 
+def _envelope(message: dict, *, finish_reason: str | None = None):
+    def handler(_request: httpx.Request) -> httpx.Response:
+        choice: dict = {"message": message}
+        if finish_reason:
+            choice["finish_reason"] = finish_reason
+        return httpx.Response(200, json={"choices": [choice]})
+
+    return handler
+
+
+@pytest.mark.parametrize(
+    "transport",
+    [_envelope({"content": None, "reasoning": "Let me think..."})],
+    indirect=True,
+)
+def test_a_reasoning_model_that_never_answers_is_reported_as_truncated(configured, transport):
+    """Thinking tokens come out of the same budget, so the answer can be empty."""
+    with pytest.raises(AIError) as caught:
+        OpenRouterProvider().complete_json(_plain_request())
+
+    assert caught.value.code == TRUNCATED
+
+
+@pytest.mark.parametrize(
+    "transport", [_envelope({"content": ""}, finish_reason="length")], indirect=True
+)
+def test_hitting_the_token_cap_is_reported_as_truncated(configured, transport):
+    with pytest.raises(AIError) as caught:
+        OpenRouterProvider().complete_json(_plain_request())
+
+    assert caught.value.code == TRUNCATED
+
+
+@pytest.mark.parametrize("transport", [_envelope({"content": ""})], indirect=True)
+def test_an_empty_answer_without_a_reason_stays_invalid(configured, transport):
+    with pytest.raises(AIError) as caught:
+        OpenRouterProvider().complete_json(_plain_request())
+
+    assert caught.value.code == INVALID_RESPONSE
+
+
+@pytest.mark.parametrize(
+    "transport",
+    [_envelope({"content": [{"type": "text", "text": '{"role": "SRE", "years": 2}'}]})],
+    indirect=True,
+)
+def test_content_returned_as_parts_is_joined(configured, transport):
+    """Not every provider answers with a plain string."""
+    response = OpenRouterProvider().complete_json(_plain_request())
+
+    assert response.data == {"role": "SRE", "years": 2}
+
+
 # --- structured completion -------------------------------------------------
 
 
@@ -268,6 +322,89 @@ def test_request_for_derives_the_schema_from_the_model():
 
     assert request.schema_name == "Profile"
     assert set(request.schema["properties"]) == {"role", "years"}
+
+
+# --- schema shaping --------------------------------------------------------
+
+
+def test_serving_hostile_constraints_are_stripped():
+    """Google AI Studio rejects a schema carrying bounds outright, with a 400."""
+    shaped = schema.for_provider(
+        {
+            "type": "object",
+            "properties": {
+                "years": {"type": "integer", "minimum": 0, "maximum": 60},
+                "name": {"type": "string", "maxLength": 80, "pattern": "^x"},
+                "tags": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
+            },
+        }
+    )
+
+    assert shaped["properties"]["years"] == {"type": "integer"}
+    assert shaped["properties"]["name"] == {"type": "string"}
+    assert shaped["properties"]["tags"] == {"type": "array", "items": {"type": "string"}}
+
+
+def test_enums_and_structure_survive():
+    shaped = schema.for_provider(
+        {
+            "type": "object",
+            "properties": {"level": {"enum": ["junior", "senior"], "type": "string"}},
+        }
+    )
+
+    assert shaped["properties"]["level"]["enum"] == ["junior", "senior"]
+
+
+def test_a_field_may_be_named_like_a_keyword():
+    shaped = schema.for_provider(
+        {"type": "object", "properties": {"format": {"type": "string", "maxLength": 3}}}
+    )
+
+    assert shaped["properties"]["format"] == {"type": "string"}
+
+
+def test_every_property_becomes_required():
+    """Under constrained decoding an all-optional object is satisfied by `{}`,
+    so the model stops after a couple of fields unless everything is required."""
+    shaped = schema.for_provider(
+        {
+            "type": "object",
+            "properties": {"a": {"type": "string"}, "b": {"type": "string"}},
+            "required": ["a"],
+        }
+    )
+
+    assert shaped["required"] == ["a", "b"]
+
+
+def test_nested_definitions_are_shaped_too():
+    shaped = schema.for_provider(
+        {
+            "$defs": {
+                "Skill": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string", "maxLength": 80}},
+                }
+            },
+            "type": "object",
+            "properties": {"skills": {"$ref": "#/$defs/Skill"}},
+        }
+    )
+
+    assert shaped["$defs"]["Skill"]["properties"]["name"] == {"type": "string"}
+    assert shaped["$defs"]["Skill"]["required"] == ["name"]
+    assert shaped["properties"]["skills"] == {"$ref": "#/$defs/Skill"}
+
+
+def test_the_real_profile_schema_survives_shaping():
+    from app.career_profiles.schemas import CareerProfileData
+
+    shaped = schema.for_provider(CareerProfileData.model_json_schema())
+
+    assert set(shaped["required"]) == set(shaped["properties"])
+    assert "maxLength" not in json.dumps(shaped)
+    assert "minimum" not in json.dumps(shaped)
 
 
 # --- untrusted input handling ---------------------------------------------

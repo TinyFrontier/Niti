@@ -24,8 +24,12 @@ class Settings(BaseSettings):
     # so it can be swapped without code changes.
     open_router_api_key: str = ""
     ai_base_url: str = "https://openrouter.ai/api/v1"
-    ai_model: str = "google/gemini-2.5-flash-lite"
-    ai_timeout_seconds: float = 30.0
+    # Picked on measured behaviour, not price: the western cheap models all invent
+    # per-skill durations a CV never states, and an invented "7 years of Python"
+    # that the user rubber-stamps becomes a fact the job matching then trusts.
+    ai_model: str = "bytedance-seed/seed-1.6-flash"
+    # ~17s is this model's typical answer, and a corrective retry doubles it
+    ai_timeout_seconds: float = 60.0
     # hard cap on characters sent to the model, per document
     ai_max_input_chars: int = 40_000
 

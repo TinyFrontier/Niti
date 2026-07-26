@@ -15,6 +15,8 @@ TIMEOUT = "ai_timeout"
 UNAVAILABLE = "ai_unavailable"
 RATE_LIMITED = "ai_rate_limited"
 INVALID_RESPONSE = "ai_invalid_response"
+# the model used its whole token budget before producing an answer
+TRUNCATED = "ai_truncated"
 
 
 class AIError(Exception):
