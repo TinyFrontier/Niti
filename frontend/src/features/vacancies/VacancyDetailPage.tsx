@@ -10,6 +10,7 @@ import {
 } from "@/features/vacancies/api";
 import { listApplications } from "@/features/applications/api";
 import { StatusBadge } from "@/features/applications/StatusBadge";
+import { JobMatchCard } from "@/features/job-match/JobMatchCard";
 import { NotesCard } from "@/features/notes/NotesCard";
 import { PageHeader } from "@/shared/layout/PageHeader";
 import { humanize } from "@/shared/lib/format";
@@ -106,6 +107,8 @@ export function VacancyDetailPage() {
           Archived {format(new Date(vacancy.archived_at), "d MMM yyyy")}
         </div>
       )}
+
+      <JobMatchCard vacancyId={id!} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

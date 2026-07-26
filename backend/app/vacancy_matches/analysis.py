@@ -109,18 +109,27 @@ def input_hash(
 
 
 def _vacancy_text(vacancy: Vacancy) -> str:
-    """Everything about the vacancy that can change a verdict, in a stable order."""
-    fields = [
-        f"Title: {vacancy.title}",
-        f"Company: {vacancy.company.name if vacancy.company else 'unknown'}",
-        f"Location: {vacancy.location or 'not stated'}",
-        f"Work format: {vacancy.work_format.value}",
-        f"Job type: {vacancy.job_type.value}",
-        f"Salary: {vacancy.salary or 'not stated'}",
-        "",
-        vacancy.description or "",
-    ]
-    return "\n".join(fields)
+    """Everything about the vacancy that can change a verdict, in a stable order.
+
+    Empty structured fields are omitted rather than rendered as "not stated".
+    Importers fill these only sometimes, so a placeholder would contradict a
+    description that states the salary or the office outright — and the model
+    believes the header, reporting a fact as missing instead of judging it.
+    """
+    known = {
+        "Title": vacancy.title,
+        "Company": vacancy.company.name if vacancy.company else None,
+        "Location": vacancy.location,
+        "Work format": _known(vacancy.work_format.value),
+        "Job type": _known(vacancy.job_type.value),
+        "Salary": vacancy.salary,
+    }
+    header = [f"{label}: {value}" for label, value in known.items() if value]
+    return "\n".join([*header, "", vacancy.description or ""])
+
+
+def _known(value: str) -> str | None:
+    return None if value == "unknown" else value
 
 
 def has_usable_description(vacancy: Vacancy) -> bool:

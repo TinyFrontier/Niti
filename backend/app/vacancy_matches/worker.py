@@ -93,8 +93,13 @@ def run_task(db: Session, provider: AIProvider, task: VacancyMatchAnalysis) -> N
     task.score_breakdown = outcome.breakdown.model_dump(mode="json")
     task.matches = [item.model_dump(mode="json") for item in matches]
     task.gaps = [item.model_dump(mode="json") for item in gaps]
-    task.red_flags = [item.model_dump(mode="json") for item in evidence.hard_blockers] + [
-        {"kind": "note", "detail": flag, "vacancy_quote": ""} for flag in evidence.red_flags
+    # one column, but a blocker is not a warning: only the first kind caps the
+    # score, so the flag travels with the entry for the UI to separate them
+    task.red_flags = [
+        {**item.model_dump(mode="json"), "blocking": True} for item in evidence.hard_blockers
+    ] + [
+        {"kind": "note", "detail": flag, "vacancy_quote": "", "blocking": False}
+        for flag in evidence.red_flags
     ]
     task.unknowns = list(evidence.unknowns)
     task.model_name = get_settings().ai_model
