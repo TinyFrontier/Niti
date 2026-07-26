@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.common.enums import CVExtractionStatus
+
 
 class CVVersionUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
@@ -24,3 +26,8 @@ class CVVersionOut(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+
+    extraction_status: CVExtractionStatus
+    # short code such as "no_text_layer" — safe to show, carries no document content
+    extraction_error: str | None
+    extracted_at: datetime | None

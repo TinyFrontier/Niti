@@ -62,6 +62,16 @@ class UserRole(StrEnum):
     MIX = "mix"
 
 
+class CVExtractionStatus(StrEnum):
+    """Whether the CV's text could be read out of the uploaded document."""
+
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    # format we deliberately don't parse (legacy .doc) — the file is still stored
+    UNSUPPORTED = "unsupported"
+
+
 class ContactType(StrEnum):
     RECRUITER = "recruiter"
     HIRING_MANAGER = "hiring_manager"

@@ -11,6 +11,7 @@ from app.auth.dependencies import CurrentUser, DbSession
 from app.common.crud import get_owned_or_404, paginate
 from app.common.schemas import PageDep, PageOut
 from app.common.storage import resolve_path, save_bytes
+from app.cv_versions import extraction
 from app.cv_versions.models import CVVersion
 from app.cv_versions.schemas import CVVersionOut, CVVersionUpdate
 
@@ -18,6 +19,17 @@ router = APIRouter()
 
 ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+def _apply_extraction(cv: CVVersion, data: bytes, extension: str) -> None:
+    """Read the document's text into the row. Cannot raise, so an unparsable CV
+    never blocks the upload itself."""
+    result = extraction.extract_text(data, extension)
+    cv.extraction_status = result.status
+    cv.extracted_text = result.text
+    cv.extraction_error = result.error
+    cv.content_hash = extraction.content_hash(data)
+    cv.extracted_at = datetime.now(UTC)
 
 
 @router.get("", response_model=PageOut[CVVersionOut])
@@ -78,6 +90,7 @@ def upload_cv_version(
         file_size=len(data),
         mime_type=file.content_type,
     )
+    _apply_extraction(cv, data, extension)
     db.add(cv)
     db.commit()
     db.refresh(cv)
@@ -87,6 +100,22 @@ def upload_cv_version(
 @router.get("/{cv_version_id}", response_model=CVVersionOut)
 def get_cv_version(cv_version_id: uuid.UUID, current_user: CurrentUser, db: DbSession) -> CVVersion:
     return get_owned_or_404(db, CVVersion, cv_version_id, current_user.id)
+
+
+@router.post("/{cv_version_id}/extract", response_model=CVVersionOut)
+def extract_cv_version(
+    cv_version_id: uuid.UUID, current_user: CurrentUser, db: DbSession
+) -> CVVersion:
+    """Re-read the stored document. Idempotent, so the UI can offer a plain retry
+    after a transient failure without tracking attempt counts."""
+    cv = get_owned_or_404(db, CVVersion, cv_version_id, current_user.id)
+    path = resolve_path(cv.file_path)
+    if not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File is missing on disk")
+    _apply_extraction(cv, path.read_bytes(), Path(cv.file_path).suffix.lower())
+    db.commit()
+    db.refresh(cv)
+    return cv
 
 
 @router.get("/{cv_version_id}/file")

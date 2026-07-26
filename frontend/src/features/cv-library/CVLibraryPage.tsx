@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Download, FileText, Plus, Send, Trash2 } from "lucide-react";
+import { Download, FileText, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
 import {
   deleteCVVersion,
   downloadCVFile,
+  extractCVVersion,
   listCVVersions,
   type CVVersion,
 } from "@/features/cv-library/api";
+import { ExtractionStatusBadge, extractionHint } from "@/features/cv-library/ExtractionStatusBadge";
 import { DataTable, type Column } from "@/shared/data-table/DataTable";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { PageHeader } from "@/shared/layout/PageHeader";
@@ -41,6 +43,11 @@ export function CVLibraryPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cv-versions"] }),
   });
 
+  const extractMutation = useMutation({
+    mutationFn: extractCVVersion,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cv-versions"] }),
+  });
+
   const columns: Column<CVVersion>[] = [
     {
       key: "title",
@@ -56,6 +63,11 @@ export function CVLibraryPage() {
     { key: "file", header: "File", render: (cv) => cv.file_name },
     { key: "size", header: "Size", render: (cv) => formatSize(cv.file_size) },
     {
+      key: "extraction",
+      header: "Text",
+      render: (cv) => <ExtractionStatusBadge cv={cv} />,
+    },
+    {
       key: "updated",
       header: "Updated",
       render: (cv) => (
@@ -67,9 +79,23 @@ export function CVLibraryPage() {
     {
       key: "actions",
       header: "",
-      className: "w-32",
+      className: "w-40",
       render: (cv) => (
         <span className="flex items-center justify-end gap-1">
+          {(cv.extraction_status === "failed" || cv.extraction_status === "pending") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              title={`${extractionHint(cv)} Click to read it again.`}
+              disabled={extractMutation.isPending}
+              onClick={(e) => {
+                e.stopPropagation();
+                extractMutation.mutate(cv.id);
+              }}
+            >
+              <RefreshCw />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

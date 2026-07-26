@@ -73,6 +73,10 @@ export function CVUploadPage() {
             <div className="flex flex-col gap-1.5">
               <Label>File *</Label>
               <Input type="file" accept=".pdf,.doc,.docx" {...field("file")} />
+              <p className="text-xs text-muted-foreground">
+                PDF and DOCX are read as text, which is what job matching needs. Legacy .doc is
+                stored but can't be read.
+              </p>
               {errors.file && <p className="text-xs text-destructive">{errors.file.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">

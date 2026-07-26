@@ -1,6 +1,9 @@
 import { api, API_URL } from "@/shared/api/client";
 import type { Page } from "@/shared/api/types";
 
+export const CV_EXTRACTION_STATUSES = ["pending", "completed", "failed", "unsupported"] as const;
+export type CVExtractionStatus = (typeof CV_EXTRACTION_STATUSES)[number];
+
 export interface CVVersion {
   id: string;
   title: string;
@@ -12,6 +15,10 @@ export interface CVVersion {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  extraction_status: CVExtractionStatus;
+  /** Short backend code, e.g. "no_text_layer". Never carries document content. */
+  extraction_error: string | null;
+  extracted_at: string | null;
 }
 
 export function listCVVersions(
@@ -34,6 +41,10 @@ export function uploadCVVersion(data: {
   if (data.specialization) formData.append("specialization", data.specialization);
   if (data.notes) formData.append("notes", data.notes);
   return api<CVVersion>("/cv-versions/upload", { method: "POST", formData });
+}
+
+export function extractCVVersion(id: string) {
+  return api<CVVersion>(`/cv-versions/${id}/extract`, { method: "POST" });
 }
 
 export function deleteCVVersion(id: string) {

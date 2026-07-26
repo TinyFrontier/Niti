@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     session_expire_days: int = 30
     debug: bool = True
 
+    # AI provider (OpenRouter): one OpenAI-compatible endpoint, model picked by slug
+    # so it can be swapped without code changes.
+    open_router_api_key: str = ""
+    ai_base_url: str = "https://openrouter.ai/api/v1"
+    ai_model: str = "google/gemini-2.5-flash"
+    ai_timeout_seconds: float = 30.0
+    # hard cap on characters sent to the model, per document
+    ai_max_input_chars: int = 40_000
+
 
 @lru_cache
 def get_settings() -> Settings:
