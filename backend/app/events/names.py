@@ -15,6 +15,9 @@ IMPORT_PREVIEW_SUCCEEDED = "import_preview_succeeded"
 IMPORT_PREVIEW_FAILED = "import_preview_failed"
 IMPORT_COMMITTED = "import_committed"
 VACANCY_SAVED = "vacancy_saved"
+VACANCY_MATCH_STARTED = "vacancy_match_started"
+VACANCY_MATCH_COMPLETED = "vacancy_match_completed"
+VACANCY_MATCH_FAILED = "vacancy_match_failed"
 APPLICATION_CREATED = "application_created"
 
 CLIENT_ALLOWED_EVENTS = frozenset(

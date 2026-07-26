@@ -14,6 +14,7 @@ from app.notes.models import Note
 from app.tasks.models import Task
 from app.users.models import User
 from app.vacancies.models import Vacancy, VacancySource
+from app.vacancy_matches.models import VacancyMatchAnalysis
 
 __all__ = [
     "Application",
@@ -35,6 +36,7 @@ __all__ = [
     "Task",
     "User",
     "UserIdentity",
+    "VacancyMatchAnalysis",
     "Vacancy",
     "VacancySource",
 ]

@@ -64,6 +64,11 @@ def create_app() -> FastAPI:
     app.include_router(notes_router, prefix="/notes", tags=["notes"])
     app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
     app.include_router(events_router, prefix="/events", tags=["events"])
+    from app.vacancy_matches.router import router as matches_router
+    from app.vacancy_matches.router import vacancy_router as vacancy_matches_router
+
+    app.include_router(vacancy_matches_router, prefix="/vacancies", tags=["job-match"])
+    app.include_router(matches_router, prefix="/vacancy-matches", tags=["job-match"])
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
@@ -73,3 +78,11 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+# Started here rather than inside create_app(): tests build their own app, and a
+# worker thread in each of them would race for the queue and reach the network.
+if get_settings().match_worker_enabled:
+    from app.ai.dependencies import get_ai_provider
+    from app.vacancy_matches.worker import start_background_worker
+
+    start_background_worker(get_ai_provider())

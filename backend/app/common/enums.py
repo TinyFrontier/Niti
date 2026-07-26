@@ -121,6 +121,68 @@ class CVExtractionStatus(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
+class MatchStatus(StrEnum):
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class MatchVerdict(StrEnum):
+    APPLY = "apply"
+    MAYBE = "maybe"
+    SKIP = "skip"
+
+
+class MatchConfidence(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class ScoreCategory(StrEnum):
+    """Scoring buckets. Each vacancy requirement lands in exactly one."""
+
+    SKILLS = "skills"
+    EXPERIENCE = "experience"
+    LOCATION = "location"
+    COMPENSATION = "compensation"
+    DOMAIN = "domain"
+
+
+class RequirementImportance(StrEnum):
+    REQUIRED = "required"
+    PREFERRED = "preferred"
+
+
+class RequirementStatus(StrEnum):
+    MET = "met"
+    PARTIAL = "partial"
+    MISSING = "missing"
+    # the vacancy is silent or ambiguous: never a match, and it lowers confidence
+    UNKNOWN = "unknown"
+
+
+class EvidenceSource(StrEnum):
+    CV = "cv"
+    PROFILE = "profile"
+
+
+class HardBlockerKind(StrEnum):
+    LANGUAGE = "language"
+    LOCATION = "location"
+    WORK_AUTHORIZATION = "work_authorization"
+    SALARY = "salary"
+    STACK = "stack"
+    RELOCATION = "relocation"
+    OTHER = "other"
+
+
+class NextAction(StrEnum):
+    CREATE_APPLICATION = "create_application"
+    REVIEW_GAPS = "review_gaps"
+    ARCHIVE_VACANCY = "archive_vacancy"
+
+
 class ContactType(StrEnum):
     RECRUITER = "recruiter"
     HIRING_MANAGER = "hiring_manager"
