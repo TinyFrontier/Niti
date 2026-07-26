@@ -33,6 +33,7 @@ from app.importer.schemas import (
 )
 from app.vacancies.duplicates import check_duplicates
 from app.vacancies.models import Vacancy, VacancySource
+from app.vacancy_matches.service import queue_after_import
 
 router = APIRouter()
 
@@ -223,5 +224,9 @@ def commit_import(
     record_event(
         db, VACANCY_SAVED, user_id=current_user.id, properties={"source": "import"}
     )
+    # The score is most useful before the user decides, so an imported vacancy is
+    # queued straight away. Silent when the profile or CV is not ready yet: the
+    # user came to save a link, not to be told what they have not filled in.
+    queue_after_import(db, current_user, vacancy)
     db.commit()
     return CommitOut(vacancy_id=vacancy.id, application_id=application_id, deduplicated=False)

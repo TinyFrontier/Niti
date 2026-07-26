@@ -337,6 +337,101 @@ def test_a_running_task_is_left_alone_by_the_reaper(client, auth_headers, sessio
     assert worker.reap_orphans(session) == 0
 
 
+# --- automatic analysis on import -----------------------------------------
+
+
+def _import(client, headers, *, url: str, description: str = DESCRIPTION):
+    return client.post(
+        "/vacancies/import/commit",
+        headers=headers,
+        json={
+            "url": url,
+            "platform": "linkedin",
+            "mode": "save",
+            "fields": {"title": "Senior Backend Engineer", "description": description},
+        },
+    )
+
+
+def test_importing_a_vacancy_queues_its_analysis(client, auth_headers, session, ready):
+    response = _import(client, auth_headers, url="https://example.com/jobs/1")
+
+    assert response.status_code == 201, response.text
+    vacancy_id = response.json()["vacancy_id"]
+    latest = client.get(f"/vacancies/{vacancy_id}/matches/latest", headers=auth_headers)
+    assert latest.status_code == 200, latest.text
+    assert latest.json()["status"] == "processing"
+
+
+def test_the_automatic_analysis_is_marked_as_such(client, auth_headers, session, ready):
+    _import(client, auth_headers, url="https://example.com/jobs/2")
+    provider = MockAIProvider(EVIDENCE)
+
+    assert _drain(session, provider)
+
+    from app.events.models import Event
+
+    user_id = uuid.UUID(client.get("/auth/me", headers=auth_headers).json()["id"])
+    triggers = [
+        event.properties["trigger"]
+        for event in session.query(Event)
+        .filter(Event.name == "vacancy_match_started", Event.user_id == user_id)
+        .all()
+    ]
+    assert triggers == ["import"]
+
+
+def test_an_import_without_a_ready_profile_queues_nothing(client, auth_headers, session):
+    """A user still importing links has not asked for scores, and must not be
+    handed failures for a run they never requested."""
+    client.patch("/auth/me", headers=auth_headers, json={"ai_consent": True})
+
+    response = _import(client, auth_headers, url="https://example.com/jobs/3")
+
+    assert response.status_code == 201, response.text
+    vacancy_id = response.json()["vacancy_id"]
+    assert (
+        client.get(f"/vacancies/{vacancy_id}/matches", headers=auth_headers).json() == []
+    )
+
+
+def test_an_import_without_consent_queues_nothing(client, auth_headers, session, ready):
+    from app.users.models import User
+
+    session.execute(update(User).values(ai_consent_at=None))
+    session.commit()
+
+    response = _import(client, auth_headers, url="https://example.com/jobs/4")
+
+    vacancy_id = response.json()["vacancy_id"]
+    assert client.get(f"/vacancies/{vacancy_id}/matches", headers=auth_headers).json() == []
+
+
+def test_an_imported_vacancy_without_a_description_queues_nothing(
+    client, auth_headers, session, ready
+):
+    response = _import(
+        client, auth_headers, url="https://example.com/jobs/5", description="Backend dev."
+    )
+
+    vacancy_id = response.json()["vacancy_id"]
+    assert client.get(f"/vacancies/{vacancy_id}/matches", headers=auth_headers).json() == []
+
+
+def test_pressing_analyze_after_an_automatic_run_reuses_it(client, auth_headers, session, ready):
+    imported = _import(client, auth_headers, url="https://example.com/jobs/6").json()
+    provider = MockAIProvider(EVIDENCE)
+    _drain(session, provider)
+
+    manual = client.post(
+        f"/vacancies/{imported['vacancy_id']}/match", headers=auth_headers, json={}
+    )
+
+    assert manual.status_code == 200, manual.text
+    assert manual.json()["status"] == "completed"
+    assert len(provider.requests) == 1
+
+
 # --- staleness ------------------------------------------------------------
 
 
