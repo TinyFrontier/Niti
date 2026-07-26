@@ -71,6 +71,16 @@ services:
       COOKIE_DOMAIN: ".${FRONTEND_HOST:-useniti.xyz}"
       COOKIE_SECURE: "true"
       DEBUG: "false"
+      # Compose forwards only what is listed here, so without these the key in
+      # .env never reaches the container and every AI feature fails closed.
+      OPEN_ROUTER_API_KEY: ${OPEN_ROUTER_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-bytedance-seed/seed-1.6-flash}
+      AI_MODEL_MATCH: ${AI_MODEL_MATCH:-google/gemini-2.5-flash-lite}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
+      AI_MAX_INPUT_CHARS: ${AI_MAX_INPUT_CHARS:-40000}
+      # every granian worker runs its own queue poller; the claim is safe either
+      # way, but this allows moving the worker to a process of its own
+      MATCH_WORKER_ENABLED: ${MATCH_WORKER_ENABLED:-true}
     volumes:
       - backend_uploads:/app/uploads
     depends_on:
