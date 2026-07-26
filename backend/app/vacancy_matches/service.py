@@ -24,6 +24,7 @@ from app.events.service import record_event
 from app.users.models import User
 from app.vacancies.models import Vacancy
 from app.vacancy_matches import analysis
+from app.vacancy_matches.analysis import MatchSubject
 from app.vacancy_matches.models import VacancyMatchAnalysis
 
 
@@ -43,10 +44,10 @@ class MatchInputs:
 
 
 def gather_inputs(
-    db: Session, user: User, vacancy: Vacancy, cv_version_id: uuid.UUID | None = None
+    db: Session, user: User, subject: MatchSubject, cv_version_id: uuid.UUID | None = None
 ) -> MatchInputs:
     """Everything an analysis needs, or a PrerequisiteError naming what is missing."""
-    if not analysis.has_usable_description(vacancy):
+    if not analysis.has_usable_description(subject):
         raise PrerequisiteError(
             "no_description",
             "This vacancy has no description to analyse. Edit it or re-run the import.",
@@ -75,18 +76,23 @@ def gather_inputs(
 
 
 def find_reusable(
-    db: Session, user: User, vacancy: Vacancy, digest: str
+    db: Session, user: User, vacancy_id: uuid.UUID | None, digest: str
 ) -> VacancyMatchAnalysis | None:
     """A finished or running analysis of exactly these inputs.
 
     Failures are excluded on purpose: a retry after an outage must be allowed to
     call the provider again.
     """
+    owner = (
+        VacancyMatchAnalysis.vacancy_id.is_(None)
+        if vacancy_id is None
+        else VacancyMatchAnalysis.vacancy_id == vacancy_id
+    )
     return db.execute(
         select(VacancyMatchAnalysis)
         .where(
             VacancyMatchAnalysis.user_id == user.id,
-            VacancyMatchAnalysis.vacancy_id == vacancy.id,
+            owner,
             VacancyMatchAnalysis.input_hash == digest,
             VacancyMatchAnalysis.status != MatchStatus.FAILED,
         )
@@ -98,24 +104,27 @@ def find_reusable(
 def queue(
     db: Session,
     user: User,
-    vacancy: Vacancy,
+    subject: MatchSubject,
     inputs: MatchInputs,
     *,
     trigger: str,
+    vacancy_id: uuid.UUID | None = None,
     force: bool = False,
 ) -> tuple[VacancyMatchAnalysis, bool]:
     """Return the analysis and whether an existing one was reused."""
     digest = analysis.input_hash(
-        vacancy, inputs.cv, inputs.profile.revision, get_settings().match_model()
+        subject, inputs.cv, inputs.profile.revision, get_settings().match_model()
     )
     if not force:
-        existing = find_reusable(db, user, vacancy, digest)
+        existing = find_reusable(db, user, vacancy_id, digest)
         if existing is not None:
             return existing, True
 
     task = VacancyMatchAnalysis(
         user_id=user.id,
-        vacancy_id=vacancy.id,
+        vacancy_id=vacancy_id,
+        # only a preview needs it: with a vacancy, the row itself is the input
+        preview_snapshot=subject.snapshot() if vacancy_id is None else None,
         cv_version_id=inputs.cv.id if inputs.cv else None,
         profile_revision=inputs.profile.revision,
         status=MatchStatus.PROCESSING,
@@ -139,13 +148,60 @@ def queue_after_import(db: Session, user: User, vacancy: Vacancy) -> VacancyMatc
     vacancies, not asking for scores, and should not be handed errors for a run
     they never requested. The manual button explains the same conditions when
     they do ask.
+
+    An analysis carried over from the preview is reused here whenever the saved
+    fields still hash the same, so the common path costs nothing extra; editing
+    a field before saving is what makes this queue a second run.
     """
+    subject = MatchSubject.from_vacancy(vacancy)
     try:
-        inputs = gather_inputs(db, user, vacancy)
+        inputs = gather_inputs(db, user, subject)
     except PrerequisiteError:
         return None
-    task, reused = queue(db, user, vacancy, inputs, trigger="import")
+    task, reused = queue(db, user, subject, inputs, trigger="import", vacancy_id=vacancy.id)
     return None if reused else task
+
+
+def queue_for_preview(
+    db: Session, user: User, subject: MatchSubject
+) -> VacancyMatchAnalysis | None:
+    """Best-effort analysis of a previewed posting, before it is saved.
+
+    Silent for the same reason as the import path. Unlike it, a reused analysis
+    is returned rather than dropped: the client needs the id either way, both to
+    show the result and to hand it to the commit.
+    """
+    try:
+        inputs = gather_inputs(db, user, subject)
+    except PrerequisiteError:
+        return None
+    task, _ = queue(db, user, subject, inputs, trigger="preview")
+    return task
+
+
+def attach_to_vacancy(
+    db: Session, user: User, analysis_id: uuid.UUID, vacancy: Vacancy
+) -> VacancyMatchAnalysis | None:
+    """Hand a preview's analysis to the vacancy that came out of it.
+
+    Only ever claims an unattached analysis of this user's: an id pointing at
+    somebody else's row, or at one already belonging to a vacancy, is ignored
+    rather than refused — the import itself succeeded.
+    """
+    row = db.execute(
+        select(VacancyMatchAnalysis).where(
+            VacancyMatchAnalysis.id == analysis_id,
+            VacancyMatchAnalysis.user_id == user.id,
+            VacancyMatchAnalysis.vacancy_id.is_(None),
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    row.vacancy_id = vacancy.id
+    # flushed so the queue that runs next sees this analysis as the vacancy's own
+    # and can reuse it instead of starting an identical second run
+    db.flush()
+    return row
 
 
 def _cv(db: Session, user: User, cv_version_id: uuid.UUID | None) -> CVVersion | None:

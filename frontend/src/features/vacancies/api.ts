@@ -1,6 +1,7 @@
 import { api } from "@/shared/api/client";
 import type { Page } from "@/shared/api/types";
 import type { Company } from "@/features/companies/api";
+import type { MatchVerdict } from "@/features/job-match/api";
 
 export type { Company };
 
@@ -24,7 +25,7 @@ export const VACANCY_STATUSES = [
   "archived",
 ] as const;
 export const VACANCY_TABS = ["all", "saved", "applied", "archived"] as const;
-export const VACANCY_SORTS = ["newest", "oldest", "title", "company"] as const;
+export const VACANCY_SORTS = ["newest", "oldest", "title", "company", "fit"] as const;
 
 export type WorkFormat = (typeof WORK_FORMATS)[number];
 export type JobType = (typeof JOB_TYPES)[number];
@@ -77,6 +78,8 @@ export interface VacancyListParams {
   archived?: boolean;
   tab?: VacancyTab;
   status?: VacancyStatus;
+  /** Verdict of the latest completed analysis. */
+  verdict?: MatchVerdict;
   sort?: VacancySort;
 }
 
@@ -90,7 +93,7 @@ export interface VacancyStats {
 
 export type VacancyStatsParams = Pick<
   VacancyListParams,
-  "search" | "work_format" | "job_type" | "company_id"
+  "search" | "work_format" | "job_type" | "company_id" | "verdict"
 >;
 
 export interface DuplicateCandidate {

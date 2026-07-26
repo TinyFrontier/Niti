@@ -7,6 +7,7 @@ happens afterwards, in `scoring`, from that evidence alone.
 
 import hashlib
 import json
+from dataclasses import asdict, dataclass, fields
 
 from app.ai import prompt
 from app.ai.provider import AIProvider
@@ -48,14 +49,54 @@ the vacancy leaves out.
 {prompt.UNTRUSTED_INPUT_RULE}"""
 
 
+@dataclass(frozen=True)
+class MatchSubject:
+    """The job posting an analysis runs against, with no row behind it.
+
+    An import preview is scored before the user decides to save it, so at that
+    point there is no `Vacancy` to point at. Everything below this line works on
+    a subject instead, and a saved vacancy is simply one that was built from a
+    row — the same code path serves both.
+    """
+
+    title: str | None = None
+    company_name: str | None = None
+    location: str | None = None
+    salary: str | None = None
+    # values of WorkFormat / JobType, kept as plain strings like the importer's
+    work_format: str | None = None
+    job_type: str | None = None
+    description: str | None = None
+
+    @classmethod
+    def from_vacancy(cls, vacancy: Vacancy) -> "MatchSubject":
+        return cls(
+            title=vacancy.title,
+            company_name=vacancy.company.name if vacancy.company else None,
+            location=vacancy.location,
+            salary=vacancy.salary,
+            work_format=vacancy.work_format.value,
+            job_type=vacancy.job_type.value,
+            description=vacancy.description,
+        )
+
+    @classmethod
+    def from_snapshot(cls, data: dict) -> "MatchSubject":
+        """Rebuild from what was stored on the analysis row."""
+        return cls(**{field.name: data.get(field.name) for field in fields(cls)})
+
+    def snapshot(self) -> dict:
+        return asdict(self)
+
+
 def build_user_prompt(
-    vacancy: Vacancy, cv_text: str | None, profile: CareerProfileData
+    subject: MatchSubject, cv_text: str | None, profile: CareerProfileData
 ) -> str:
     facts = json.dumps(
         profile.model_dump(mode="json", exclude_none=True), ensure_ascii=False, indent=1
     )
     blocks = [
-        prompt.as_document("vacancy", _vacancy_text(vacancy)),
+        prompt.as_document("vacancy", _subject_text(subject)),
         prompt.as_document("candidate-profile", facts),
     ]
     if cv_text:
@@ -69,7 +110,7 @@ def build_user_prompt(
 def analyze(
     provider: AIProvider,
     *,
-    vacancy: Vacancy,
+    subject: MatchSubject,
     cv_text: str | None,
     profile: CareerProfileData,
     model: str | None = None,
@@ -77,7 +118,7 @@ def analyze(
     request = request_for(
         MatchEvidence,
         system=SYSTEM,
-        user=build_user_prompt(vacancy, cv_text, profile),
+        user=build_user_prompt(subject, cv_text, profile),
         model=model,
         # evidence for a dozen requirements is far longer than a profile draft
         max_tokens=8000,
@@ -86,7 +127,7 @@ def analyze(
 
 
 def input_hash(
-    vacancy: Vacancy, cv: CVVersion | None, profile_revision: int, model: str
+    subject: MatchSubject, cv: CVVersion | None, profile_revision: int, model: str
 ) -> str:
     """Identifies everything a result depends on.
 
@@ -95,7 +136,9 @@ def input_hash(
     """
     payload = json.dumps(
         {
-            "vacancy": _vacancy_text(vacancy),
+            # the key stays "vacancy" so hashes written before previews existed
+            # still compare equal, and old results do not all turn stale at once
+            "vacancy": _subject_text(subject),
             "cv": cv.content_hash if cv else None,
             "profile_revision": profile_revision,
             "model": model,
@@ -108,7 +151,7 @@ def input_hash(
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def _vacancy_text(vacancy: Vacancy) -> str:
+def _subject_text(subject: MatchSubject) -> str:
     """Everything about the vacancy that can change a verdict, in a stable order.
 
     Empty structured fields are omitted rather than rendered as "not stated".
@@ -117,20 +160,20 @@ def _vacancy_text(vacancy: Vacancy) -> str:
     believes the header, reporting a fact as missing instead of judging it.
     """
     known = {
-        "Title": vacancy.title,
-        "Company": vacancy.company.name if vacancy.company else None,
-        "Location": vacancy.location,
-        "Work format": _known(vacancy.work_format.value),
-        "Job type": _known(vacancy.job_type.value),
-        "Salary": vacancy.salary,
+        "Title": subject.title,
+        "Company": subject.company_name,
+        "Location": subject.location,
+        "Work format": _known(subject.work_format),
+        "Job type": _known(subject.job_type),
+        "Salary": subject.salary,
     }
     header = [f"{label}: {value}" for label, value in known.items() if value]
-    return "\n".join([*header, "", vacancy.description or ""])
+    return "\n".join([*header, "", subject.description or ""])
 
 
-def _known(value: str) -> str | None:
+def _known(value: str | None) -> str | None:
     return None if value == "unknown" else value
 
 
-def has_usable_description(vacancy: Vacancy) -> bool:
-    return len((vacancy.description or "").strip()) >= MIN_DESCRIPTION_LENGTH
+def has_usable_description(subject: MatchSubject) -> bool:
+    return len((subject.description or "").strip()) >= MIN_DESCRIPTION_LENGTH

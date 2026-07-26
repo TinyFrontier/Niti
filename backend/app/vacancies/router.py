@@ -12,6 +12,8 @@ from app.common.crud import get_owned_or_404, paginate
 from app.common.enums import (
     ApplicationStatus,
     JobType,
+    MatchStatus,
+    MatchVerdict,
     VacancySort,
     VacancyStatus,
     VacancyTab,
@@ -35,6 +37,7 @@ from app.vacancies.schemas import (
     VacancyUpdate,
 )
 from app.vacancies.status import application_statuses_for
+from app.vacancy_matches.models import VacancyMatchAnalysis
 
 router = APIRouter()
 
@@ -103,11 +106,39 @@ def _status_condition(vacancy_status: VacancyStatus):
     return Vacancy.archived_at.is_(None) & condition
 
 
+def _latest_match(column):
+    """That column from the newest completed analysis of each vacancy.
+
+    Same shape as `_LATEST_APPLICATION_STATUS`: a correlated scalar subquery, so
+    filtering and sorting on the fit stays one statement instead of a join that
+    would multiply rows by the analysis history.
+    """
+    return (
+        select(column)
+        .where(
+            VacancyMatchAnalysis.vacancy_id == Vacancy.id,
+            VacancyMatchAnalysis.status == MatchStatus.COMPLETED,
+        )
+        .order_by(VacancyMatchAnalysis.created_at.desc())
+        .limit(1)
+        .correlate(Vacancy)
+        .scalar_subquery()
+    )
+
+
+_LATEST_MATCH_VERDICT = _latest_match(VacancyMatchAnalysis.verdict)
+_LATEST_MATCH_SCORE = _latest_match(VacancyMatchAnalysis.score)
+
 _SORT_CLAUSES = {
-    VacancySort.NEWEST: lambda: Vacancy.created_at.desc(),
-    VacancySort.OLDEST: lambda: Vacancy.created_at.asc(),
-    VacancySort.TITLE: lambda: Vacancy.title.asc(),
-    VacancySort.COMPANY: lambda: Company.name.asc().nulls_last(),
+    VacancySort.NEWEST: lambda: (Vacancy.created_at.desc(),),
+    VacancySort.OLDEST: lambda: (Vacancy.created_at.asc(),),
+    VacancySort.TITLE: lambda: (Vacancy.title.asc(),),
+    VacancySort.COMPANY: lambda: (Company.name.asc().nulls_last(),),
+    # unanalysed vacancies sink to the bottom rather than reading as a zero
+    VacancySort.FIT: lambda: (
+        _LATEST_MATCH_SCORE.desc().nulls_last(),
+        Vacancy.created_at.desc(),
+    ),
 }
 
 
@@ -117,6 +148,7 @@ def _filtered_stmt(
     work_format: WorkFormat | None,
     job_type: JobType | None,
     company_id: uuid.UUID | None,
+    verdict: MatchVerdict | None = None,
 ):
     """Everything except the tab/archived split, which the counters vary over."""
     stmt = (
@@ -134,6 +166,8 @@ def _filtered_stmt(
         stmt = stmt.where(Vacancy.job_type == job_type)
     if company_id is not None:
         stmt = stmt.where(Vacancy.company_id == company_id)
+    if verdict is not None:
+        stmt = stmt.where(_LATEST_MATCH_VERDICT == verdict)
     return stmt
 
 
@@ -149,9 +183,12 @@ def list_vacancies(
     archived: bool = False,
     tab: VacancyTab | None = None,
     vacancy_status: Annotated[VacancyStatus | None, Query(alias="status")] = None,
+    verdict: MatchVerdict | None = None,
     sort: VacancySort = VacancySort.NEWEST,
 ) -> PageOut:
-    stmt = _loaded(_filtered_stmt(current_user.id, search, work_format, job_type, company_id))
+    stmt = _loaded(
+        _filtered_stmt(current_user.id, search, work_format, job_type, company_id, verdict)
+    )
     if vacancy_status is not None:
         stmt = stmt.where(_status_condition(vacancy_status))
     if tab is not None:
@@ -162,7 +199,7 @@ def list_vacancies(
         stmt = stmt.where(
             Vacancy.archived_at.is_not(None) if archived else Vacancy.archived_at.is_(None)
         )
-    stmt = stmt.order_by(_SORT_CLAUSES[sort]())
+    stmt = stmt.order_by(*_SORT_CLAUSES[sort]())
     items, total = paginate(db, stmt, params.page, params.page_size)
     return PageOut(items=items, total=total, page=params.page, page_size=params.page_size)
 
@@ -175,8 +212,9 @@ def vacancy_stats(
     work_format: WorkFormat | None = None,
     job_type: JobType | None = None,
     company_id: uuid.UUID | None = None,
+    verdict: MatchVerdict | None = None,
 ) -> VacancyStatsOut:
-    base = _filtered_stmt(current_user.id, search, work_format, job_type, company_id)
+    base = _filtered_stmt(current_user.id, search, work_format, job_type, company_id, verdict)
 
     def count(condition=None) -> int:
         stmt = base if condition is None else base.where(condition)

@@ -52,6 +52,8 @@ class VacancySort(StrEnum):
     OLDEST = "oldest"
     TITLE = "title"
     COMPANY = "company"
+    # by the score of the latest completed analysis; unscored vacancies last
+    FIT = "fit"
 
 
 class UserRole(StrEnum):

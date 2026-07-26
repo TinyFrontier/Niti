@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import delete, update
@@ -11,8 +12,12 @@ from app.ai.provider import TIMEOUT, AIError
 from app.common.enums import CVExtractionStatus
 from app.core.database import get_db
 from app.cv_versions.models import CVVersion
+from app.importer import fetcher
+from app.importer.fetcher import FetchResult
 from app.vacancy_matches import worker
 from app.vacancy_matches.models import VacancyMatchAnalysis
+
+FIXTURES = Path(__file__).parent / "fixtures" / "import"
 
 DESCRIPTION = (
     "We are looking for a senior backend engineer to own our billing platform. "
@@ -432,6 +437,186 @@ def test_pressing_analyze_after_an_automatic_run_reuses_it(client, auth_headers,
     assert len(provider.requests) == 1
 
 
+# --- analysis on the import preview ----------------------------------------
+
+
+@pytest.fixture()
+def previewed(client, auth_headers, monkeypatch):
+    """A previewed posting, scored before any vacancy exists."""
+    monkeypatch.setattr(
+        fetcher,
+        "fetch_html",
+        lambda url: FetchResult(
+            final_url=url, html=(FIXTURES / "jsonld_generic.html").read_text(), status=200
+        ),
+    )
+    response = client.post(
+        "/vacancies/import/preview",
+        headers=auth_headers,
+        json={"url": "https://careers.example.com/jobs/preview"},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def _commit_preview(client, headers, preview, **overrides):
+    """Save exactly what the preview offered, unless a field is overridden."""
+    fields = {key: value for key, value in preview["fields"].items() if value is not None}
+    return client.post(
+        "/vacancies/import/commit",
+        headers=headers,
+        json={
+            "url": preview["url"],
+            "platform": preview["platform"],
+            "mode": overrides.pop("mode", "save"),
+            "match_analysis_id": overrides.pop("match_analysis_id", preview["match_analysis_id"]),
+            "fields": {**fields, **overrides},
+        },
+    )
+
+
+def test_previewing_a_link_queues_an_analysis_without_a_vacancy(
+    client, auth_headers, ready, previewed
+):
+    assert previewed["match_analysis_id"] is not None
+
+    body = client.get(
+        f"/vacancy-matches/{previewed['match_analysis_id']}", headers=auth_headers
+    ).json()
+    assert body["status"] == "processing"
+    assert body["vacancy_id"] is None
+
+
+def test_a_preview_analysis_completes_with_no_vacancy_behind_it(
+    client, auth_headers, session, ready, previewed
+):
+    assert _drain(session, MockAIProvider(EVIDENCE))
+
+    body = client.get(
+        f"/vacancy-matches/{previewed['match_analysis_id']}", headers=auth_headers
+    ).json()
+    assert body["status"] == "completed"
+    assert body["score"] == 100
+    assert body["vacancy_id"] is None
+
+
+def test_saving_the_preview_carries_its_analysis_over(
+    client, auth_headers, session, ready, previewed
+):
+    provider = MockAIProvider(EVIDENCE)
+    _drain(session, provider)
+
+    saved = _commit_preview(client, auth_headers, previewed)
+
+    assert saved.status_code == 201, saved.text
+    latest = client.get(
+        f"/vacancies/{saved.json()['vacancy_id']}/matches/latest", headers=auth_headers
+    ).json()
+    assert latest["id"] == previewed["match_analysis_id"]
+    assert latest["vacancy_id"] == saved.json()["vacancy_id"]
+    # unchanged fields hash the same, so the import does not pay for a second run
+    assert latest["is_stale"] is False
+    assert len(provider.requests) == 1
+
+
+def test_editing_a_field_before_saving_queues_a_fresh_analysis(
+    client, auth_headers, session, ready, previewed
+):
+    _drain(session, MockAIProvider(EVIDENCE))
+
+    saved = _commit_preview(
+        client, auth_headers, previewed, description=DESCRIPTION + " Fluent German required."
+    )
+
+    history = client.get(
+        f"/vacancies/{saved.json()['vacancy_id']}/matches", headers=auth_headers
+    ).json()
+    assert len(history) == 2
+    assert history[0]["status"] == "processing"
+    # the carried-over one described the posting as it was previewed
+    assert history[1]["id"] == previewed["match_analysis_id"]
+    assert history[1]["is_stale"] is True
+
+
+def test_another_user_cannot_claim_a_preview_analysis(
+    client, auth_headers, session, ready, previewed
+):
+    email = f"preview-other-{uuid.uuid4().hex[:8]}@test.example"
+    client.post("/auth/register", json={"email": email, "password": "password123"})
+    token = client.post(
+        "/auth/login", json={"email": email, "password": "password123"}
+    ).json()["access_token"]
+
+    saved = _commit_preview(client, {"Authorization": f"Bearer {token}"}, previewed)
+
+    assert saved.status_code == 201, saved.text
+    # the import still succeeded; only the stolen analysis was ignored
+    assert (
+        client.get(
+            f"/vacancies/{saved.json()['vacancy_id']}/matches",
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()
+        == []
+    )
+    # read through the session: registering the second user leaves its cookie in
+    # the client's jar, so an owner-scoped request would answer as the wrong user
+    session.expire_all()
+    stolen = session.get(VacancyMatchAnalysis, uuid.UUID(previewed["match_analysis_id"]))
+    assert stolen.vacancy_id is None
+
+
+def test_a_preview_without_a_ready_profile_queues_nothing(client, auth_headers, previewed):
+    assert previewed["match_analysis_id"] is None
+
+
+def test_previewing_the_same_link_twice_reuses_the_analysis(
+    client, auth_headers, ready, previewed
+):
+    again = client.post(
+        "/vacancies/import/preview",
+        headers=auth_headers,
+        json={"url": "https://careers.example.com/jobs/preview"},
+    ).json()
+
+    assert again["match_analysis_id"] == previewed["match_analysis_id"]
+
+
+def test_rerunning_the_preview_scores_the_edited_fields(
+    client, auth_headers, session, ready, previewed
+):
+    provider = MockAIProvider(EVIDENCE, EVIDENCE)
+    _drain(session, provider)
+
+    response = client.post(
+        "/vacancies/import/preview/match",
+        headers=auth_headers,
+        json={
+            "fields": {
+                "title": "Staff Backend Engineer",
+                "description": DESCRIPTION + " Fluent German required.",
+            }
+        },
+    )
+    _drain(session, provider)
+
+    assert response.status_code == 202, response.text
+    assert response.json()["vacancy_id"] is None
+    assert "Fluent German required." in provider.requests[1].user
+
+
+def test_rerunning_the_preview_explains_unmet_conditions(client, auth_headers):
+    client.patch("/auth/me", headers=auth_headers, json={"ai_consent": True})
+
+    response = client.post(
+        "/vacancies/import/preview/match",
+        headers=auth_headers,
+        json={"fields": {"title": "Backend Engineer", "description": DESCRIPTION}},
+    )
+
+    assert response.status_code == 400, response.text
+    assert "career profile" in response.json()["detail"]
+
+
 # --- staleness ------------------------------------------------------------
 
 
@@ -551,6 +736,113 @@ def test_summary_is_scoped_to_the_owner(client, auth_headers, session, ready):
     ).json()
 
     assert body == []
+
+
+# --- filtering and sorting the list by fit ---------------------------------
+
+
+@pytest.fixture()
+def scored(client, auth_headers, session):
+    """Three vacancies with a verdict each, written straight to the table.
+
+    The queue is exercised elsewhere; what matters here is the list query, and
+    building these through the worker would only fix the scores to whatever the
+    canned evidence happens to produce.
+    """
+    verdicts = [("Apply role", 88, "apply"), ("Maybe role", 55, "maybe"), ("Skip role", 21, "skip")]
+    created = {}
+    for title, score, verdict in verdicts:
+        vacancy_id = client.post(
+            "/vacancies", headers=auth_headers, json={"title": title}
+        ).json()["id"]
+        created[verdict] = vacancy_id
+        session.add(
+            VacancyMatchAnalysis(
+                user_id=uuid.UUID(client.get("/auth/me", headers=auth_headers).json()["id"]),
+                vacancy_id=uuid.UUID(vacancy_id),
+                profile_revision=1,
+                status="completed",
+                input_hash=f"hash-{verdict}",
+                score=score,
+                verdict=verdict,
+                confidence="high",
+                created_at=datetime.now(UTC),
+                completed_at=datetime.now(UTC),
+            )
+        )
+    created["none"] = client.post(
+        "/vacancies", headers=auth_headers, json={"title": "Unscored role"}
+    ).json()["id"]
+    session.commit()
+    return created
+
+
+def _titles(response) -> list[str]:
+    return [item["title"] for item in response.json()["items"]]
+
+
+def test_the_list_filters_by_verdict(client, auth_headers, scored):
+    response = client.get("/vacancies", headers=auth_headers, params={"verdict": "apply"})
+
+    assert response.status_code == 200, response.text
+    assert _titles(response) == ["Apply role"]
+
+
+def test_the_counters_follow_the_verdict_filter(client, auth_headers, scored):
+    stats = client.get("/vacancies/stats", headers=auth_headers, params={"verdict": "maybe"}).json()
+
+    assert stats["all"] == 1
+    assert stats["saved"] == 1
+
+
+def test_the_list_sorts_by_fit_score(client, auth_headers, scored):
+    response = client.get("/vacancies", headers=auth_headers, params={"sort": "fit"})
+
+    assert _titles(response) == ["Apply role", "Maybe role", "Skip role", "Unscored role"]
+
+
+def test_only_the_newest_analysis_decides_the_verdict_filter(
+    client, auth_headers, session, scored
+):
+    """A re-run that changed its mind must move the vacancy between filters."""
+    session.add(
+        VacancyMatchAnalysis(
+            user_id=uuid.UUID(client.get("/auth/me", headers=auth_headers).json()["id"]),
+            vacancy_id=uuid.UUID(scored["skip"]),
+            profile_revision=1,
+            status="completed",
+            input_hash="hash-skip-again",
+            score=91,
+            verdict="apply",
+            confidence="high",
+            created_at=datetime.now(UTC) + timedelta(minutes=1),
+            completed_at=datetime.now(UTC) + timedelta(minutes=1),
+        )
+    )
+    session.commit()
+
+    response = client.get("/vacancies", headers=auth_headers, params={"verdict": "apply"})
+
+    assert sorted(_titles(response)) == ["Apply role", "Skip role"]
+
+
+def test_a_pending_analysis_does_not_decide_the_verdict(client, auth_headers, session, scored):
+    """A queued re-run leaves the previous verdict standing until it finishes."""
+    session.add(
+        VacancyMatchAnalysis(
+            user_id=uuid.UUID(client.get("/auth/me", headers=auth_headers).json()["id"]),
+            vacancy_id=uuid.UUID(scored["apply"]),
+            profile_revision=1,
+            status="processing",
+            input_hash="hash-apply-rerun",
+            created_at=datetime.now(UTC) + timedelta(minutes=1),
+        )
+    )
+    session.commit()
+
+    response = client.get("/vacancies", headers=auth_headers, params={"verdict": "apply"})
+
+    assert _titles(response) == ["Apply role"]
 
 
 # --- ownership ------------------------------------------------------------

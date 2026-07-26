@@ -20,9 +20,16 @@ class VacancyMatchAnalysis(UUIDPkMixin, OwnedMixin, Base):
 
     __tablename__ = "vacancy_match_analyses"
 
-    vacancy_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("vacancies.id", ondelete="CASCADE"), index=True, nullable=False
+    # nullable while the analysis belongs to an import preview: the score is
+    # computed before the user decides to save, so there is no row to point at
+    # yet. Commit fills this in and the result carries over to the vacancy.
+    vacancy_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("vacancies.id", ondelete="CASCADE"), index=True
     )
+    # the previewed fields the analysis ran on, so the worker has something to
+    # send even before a vacancy exists. Left in place after the analysis is
+    # attached: it records what was actually judged.
+    preview_snapshot: Mapped[dict | None] = mapped_column(JSONB)
     # nullable so an analysis survives the CV being soft-deleted afterwards
     cv_version_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("cv_versions.id", ondelete="SET NULL")

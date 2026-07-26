@@ -38,8 +38,9 @@ def request_match(
     response: Response,
 ) -> MatchAnalysisOut:
     vacancy = get_owned_or_404(db, Vacancy, vacancy_id, current_user.id)
+    subject = analysis.MatchSubject.from_vacancy(vacancy)
     try:
-        inputs = service.gather_inputs(db, current_user, vacancy, payload.cv_version_id)
+        inputs = service.gather_inputs(db, current_user, subject, payload.cv_version_id)
     except service.PrerequisiteError as error:
         # asking explicitly earns an explanation, unlike the silent import path
         code = (
@@ -52,7 +53,13 @@ def request_match(
         raise HTTPException(code, detail=error.message) from error
 
     task, reused = service.queue(
-        db, current_user, vacancy, inputs, trigger="manual", force=payload.force
+        db,
+        current_user,
+        subject,
+        inputs,
+        trigger="manual",
+        vacancy_id=vacancy.id,
+        force=payload.force,
     )
     db.commit()
     db.refresh(task)
@@ -144,7 +151,8 @@ def match_summaries(
 @router.get("/{analysis_id}", response_model=MatchAnalysisOut)
 def get_match(analysis_id: uuid.UUID, current_user: CurrentUser, db: DbSession) -> MatchAnalysisOut:
     row = get_owned_or_404(db, VacancyMatchAnalysis, analysis_id, current_user.id)
-    vacancy = db.get(Vacancy, row.vacancy_id)
+    # a preview's analysis has no vacancy behind it until the import is committed
+    vacancy = db.get(Vacancy, row.vacancy_id) if row.vacancy_id else None
     return _as_out(db, row, vacancy, _profile_revision(db, current_user))
 
 
@@ -171,6 +179,11 @@ def _as_out(
     if row.status is not MatchStatus.COMPLETED or vacancy is None or profile_revision is None:
         return out
     cv = db.get(CVVersion, row.cv_version_id) if row.cv_version_id else None
-    current = analysis.input_hash(vacancy, cv, profile_revision, get_settings().match_model())
+    current = analysis.input_hash(
+        analysis.MatchSubject.from_vacancy(vacancy),
+        cv,
+        profile_revision,
+        get_settings().match_model(),
+    )
     out.is_stale = row.input_hash != current
     return out

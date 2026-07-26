@@ -32,7 +32,11 @@ import {
   type VacancyTab,
   type WorkFormat,
 } from "@/features/vacancies/api";
-import { getMatchSummaries, type MatchSummary } from "@/features/job-match/api";
+import {
+  getMatchSummaries,
+  type MatchSummary,
+  type MatchVerdict,
+} from "@/features/job-match/api";
 import { VerdictBadge } from "@/features/job-match/VerdictBadge";
 import { PasteLinkCard } from "@/features/vacancies/PasteLinkCard";
 import { VacancyStatusBadge } from "@/features/vacancies/VacancyStatusBadge";
@@ -58,6 +62,13 @@ const SORT_OPTIONS: Array<{ value: VacancySort; label: string }> = [
   { value: "oldest", label: "Oldest first" },
   { value: "title", label: "Role A–Z" },
   { value: "company", label: "Company A–Z" },
+  { value: "fit", label: "Best fit" },
+];
+
+const VERDICT_OPTIONS: Array<{ value: MatchVerdict; label: string }> = [
+  { value: "apply", label: "Apply" },
+  { value: "maybe", label: "Maybe" },
+  { value: "skip", label: "Skip" },
 ];
 
 function addedLabel(value: string): string {
@@ -238,6 +249,7 @@ export function VacanciesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<VacancyStatus | "">("");
   const [workFormat, setWorkFormat] = useState<WorkFormat | "">("");
+  const [verdict, setVerdict] = useState<MatchVerdict | "">("");
   const [sort, setSort] = useState<VacancySort>("newest");
   const debouncedSearch = useDebouncedValue(search);
 
@@ -245,6 +257,7 @@ export function VacanciesPage() {
   const statsParams = {
     search: debouncedSearch || undefined,
     work_format: workFormat || undefined,
+    verdict: verdict || undefined,
   };
   const listParams = {
     ...statsParams,
@@ -282,11 +295,12 @@ export function VacanciesPage() {
     apply(value);
     setPage(1);
   };
-  const filtersActive = Boolean(search || status || workFormat) || sort !== "newest";
+  const filtersActive = Boolean(search || status || workFormat || verdict) || sort !== "newest";
   const clearFilters = () => {
     setSearch("");
     setStatus("");
     setWorkFormat("");
+    setVerdict("");
     setSort("newest");
     setPage(1);
   };
@@ -347,6 +361,19 @@ export function VacanciesPage() {
           {WORK_FORMATS.filter((value) => value !== "unknown").map((value) => (
             <option key={value} value={value}>
               {humanize(value)}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Filter by fit"
+          value={verdict}
+          onChange={(event) => resetPage(setVerdict)(event.target.value as MatchVerdict | "")}
+          className="w-32"
+        >
+          <option value="">Fit</option>
+          {VERDICT_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
             </option>
           ))}
         </Select>

@@ -29,6 +29,9 @@ class PreviewOut(BaseModel):
     fields: PreviewFieldsOut
     warnings: list[str]
     duplicates: list[DuplicateCandidateOut]
+    # the analysis started for this preview, to poll and to hand to the commit;
+    # null when the profile, consent or description does not allow one
+    match_analysis_id: uuid.UUID | None = None
 
 
 class VacancyFieldsIn(BaseModel):
@@ -46,12 +49,24 @@ class DuplicateActionIn(BaseModel):
     action: Literal["add_source"]
 
 
+class PreviewMatchIn(BaseModel):
+    """Re-run the score on the fields as they stand in the preview form."""
+
+    fields: VacancyFieldsIn
+    cv_version_id: uuid.UUID | None = None
+    force: bool = False
+
+
 class CommitIn(BaseModel):
     url: str = Field(min_length=1, max_length=1000)
     platform: str = Field(min_length=1, max_length=50)
-    mode: Literal["save", "applied"]
+    # "skip" saves the vacancy archived: the decision is recorded, the same link
+    # is recognised as a duplicate later, and Unarchive takes it back
+    mode: Literal["save", "applied", "skip"]
     fields: VacancyFieldsIn
     duplicate_action: DuplicateActionIn | None = None
+    # analysis started on the preview, carried over to the saved vacancy
+    match_analysis_id: uuid.UUID | None = None
 
 
 class CommitOut(BaseModel):

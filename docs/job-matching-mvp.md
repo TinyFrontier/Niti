@@ -596,6 +596,9 @@ class MatchAnalyzer(Protocol):
 
 ### Итерация 2 — решение до сохранения
 
+Сделано. Подробности и принятые по ходу решения — в
+[job-matching-status.md](job-matching-status.md).
+
 - запуск matching на import preview;
 - перенос результата в сохранённую Vacancy после commit;
 - быстрые действия `Save`, `Apply`, `Skip`;

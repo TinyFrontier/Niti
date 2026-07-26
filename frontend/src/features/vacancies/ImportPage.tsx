@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import type { UseFormReturn } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -14,12 +15,14 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { trackEvent } from "@/features/events/api";
+import { PreviewMatchCard } from "@/features/job-match/PreviewMatchCard";
 import { ThreadStepper } from "@/features/vacancies/ThreadStepper";
 import {
   extractImportErrorCode,
   importCommit,
   importPreview,
-  type ImportCommitPayload,
+  type ImportCommitFields,
+  type ImportCommitMode,
   type ImportErrorCode,
   type ImportPreview,
 } from "@/features/vacancies/importApi";
@@ -34,12 +37,18 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 
-type CommitMode = "save" | "applied";
+type CommitMode = ImportCommitMode;
 
 interface PendingCommit {
   mode: CommitMode;
   values: VacancyFormValues;
 }
+
+const DUPLICATE_NEW_LABEL: Record<CommitMode, string> = {
+  save: "Save as new",
+  applied: "Create new & mark applied",
+  skip: "Skip as new",
+};
 
 const ERROR_MESSAGES: Record<ImportErrorCode, { title: string; description: string }> = {
   blocked_url: {
@@ -72,7 +81,7 @@ const ERROR_MESSAGES: Record<ImportErrorCode, { title: string; description: stri
   },
 };
 
-function valuesToFields(values: VacancyFormValues): ImportCommitPayload["fields"] {
+function valuesToFields(values: VacancyFormValues): ImportCommitFields {
   return {
     title: values.title.trim(),
     company_name: values.company_name?.trim() || undefined,
@@ -194,7 +203,7 @@ function DuplicateDialog({
             Back
           </Button>
           <Button type="button" variant="outline" disabled={submitting} onClick={onSaveNew}>
-            {pending.mode === "applied" ? "Create new & mark applied" : "Save as new"}
+            {DUPLICATE_NEW_LABEL[pending.mode]}
           </Button>
         </div>
       </div>
@@ -293,6 +302,9 @@ export function ImportPage() {
   const source = searchParams.get("src")?.trim() || "direct";
   const [urlInput, setUrlInput] = useState(queryUrl);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  // the analysis shown beside the form, and the one handed to the commit; it
+  // moves when the user re-checks after editing the extracted fields
+  const [matchAnalysisId, setMatchAnalysisId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<unknown>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [manualMode, setManualMode] = useState(false);
@@ -305,6 +317,9 @@ export function ImportPage() {
   const lastAutoPreviewUrlRef = useRef<string | null>(null);
   const checkingDuplicatesRef = useRef(false);
   const committingRef = useRef(false);
+  // the form lives inside VacancyForm; the match card, which sits beside it,
+  // needs the values as they stand to re-check a corrected posting
+  const formRef = useRef<UseFormReturn<VacancyFormValues> | null>(null);
 
   useEffect(() => {
     if (trackedPageRef.current) return;
@@ -324,8 +339,11 @@ export function ImportPage() {
     setManualMode(false);
     setPreview(null);
     setLinkToExisting(false);
+    setMatchAnalysisId(null);
     try {
-      setPreview(await importPreview(value));
+      const result = await importPreview(value);
+      setPreview(result);
+      setMatchAnalysisId(result.match_analysis_id);
     } catch (error) {
       setPreviewError(error);
     } finally {
@@ -345,12 +363,15 @@ export function ImportPage() {
     onSettled: () => {
       committingRef.current = false;
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["vacancies"] });
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       if (result.application_id) {
         navigate(`/applications/${result.application_id}`);
+      } else if (variables.mode === "skip") {
+        // nothing to read on a vacancy the user just decided against
+        navigate("/vacancies");
       } else {
         navigate(`/vacancies/${result.vacancy_id}`);
       }
@@ -388,6 +409,8 @@ export function ImportPage() {
       duplicate_action: duplicate
         ? { vacancy_id: duplicate.vacancy_id, action: "add_source" }
         : undefined,
+      // the score the user just acted on follows the vacancy it described
+      match_analysis_id: matchAnalysisId ?? undefined,
     });
   }
 
@@ -651,57 +674,70 @@ export function ImportPage() {
             submitting={commitMutation.isPending || checkingDuplicates}
             disabled={commitMutation.isPending || checkingDuplicates || linkToExisting}
             showDuplicateCheck={manualMode}
-            renderActions={(form) => (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  disabled={commitMutation.isPending || checkingDuplicates}
-                  onClick={() => {
-                    // Attaching a link keeps the existing vacancy's data, so skip
-                    // field validation while the form is disabled.
-                    if (linkToExisting) {
-                      void requestCommit("save", form.getValues());
-                      return;
-                    }
-                    void form.handleSubmit((values) => requestCommit("save", values))();
-                  }}
-                >
-                  {checkingDuplicates
-                    ? "Checking…"
-                    : linkToExisting
-                      ? "Add link to existing"
-                      : "Save for later"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={commitMutation.isPending || checkingDuplicates}
-                  onClick={() => {
-                    if (linkToExisting) {
-                      void requestCommit("applied", form.getValues());
-                      return;
-                    }
-                    void form.handleSubmit((values) => requestCommit("applied", values))();
-                  }}
-                >
-                  I already applied
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={commitMutation.isPending || checkingDuplicates}
-                  onClick={() => navigate(-1)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
+            renderActions={(form) => {
+              // captured for the match card beside the form, which re-checks the
+              // fit against the values as the user has corrected them
+              formRef.current = form;
+              const busy = commitMutation.isPending || checkingDuplicates;
+              const commit = (mode: CommitMode) => {
+                // Attaching a link keeps the existing vacancy's data, so skip
+                // field validation while the form is disabled.
+                if (linkToExisting) {
+                  void requestCommit(mode, form.getValues());
+                  return;
+                }
+                void form.handleSubmit((values) => requestCommit(mode, values))();
+              };
+              return (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" disabled={busy} onClick={() => commit("save")}>
+                    {checkingDuplicates
+                      ? "Checking…"
+                      : linkToExisting
+                        ? "Add link to existing"
+                        : "Save for later"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => commit("applied")}
+                  >
+                    I already applied
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    title="Saves it archived, so this link is recognised instead of offered again"
+                    onClick={() => commit("skip")}
+                  >
+                    Not interested
+                  </Button>
+                  <Button type="button" variant="ghost" disabled={busy} onClick={() => navigate(-1)}>
+                    Cancel
+                  </Button>
+                </div>
+              );
+            }}
           />
         </>
       )}
         </div>
 
         <aside className="flex flex-col gap-4">
+          {reviewing && (
+            <PreviewMatchCard
+              analysisId={matchAnalysisId}
+              onStarted={setMatchAnalysisId}
+              disabled={commitMutation.isPending || checkingDuplicates}
+              getFields={() => {
+                const values = formRef.current?.getValues();
+                if (!values?.title?.trim()) return null;
+                return valuesToFields(values);
+              }}
+            />
+          )}
           {preview && <ImportSummary preview={preview} />}
           <Card>
             <CardContent className="p-5">

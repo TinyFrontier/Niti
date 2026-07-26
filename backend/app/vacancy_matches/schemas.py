@@ -78,7 +78,8 @@ class MatchAnalysisOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    vacancy_id: uuid.UUID
+    # null while the analysis belongs to an import preview that was never saved
+    vacancy_id: uuid.UUID | None
     cv_version_id: uuid.UUID | None
     profile_revision: int
     status: MatchStatus

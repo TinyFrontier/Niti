@@ -203,6 +203,46 @@ def test_commit_applied_creates_application(client, auth_headers, engine):
     assert _event_count(engine, "application_created") == created_before + 1
 
 
+def test_commit_skip_archives_the_vacancy_and_remembers_the_link(
+    client, auth_headers, engine
+):
+    """Skipping is a decision, not a discard.
+
+    The vacancy is kept archived so the same posting is recognised as a
+    duplicate next time instead of being previewed again from scratch.
+    """
+    applications_before = _count(engine, Application)
+
+    response = client.post(
+        "/vacancies/import/commit",
+        headers=auth_headers,
+        json={
+            "url": "https://djinni.co/jobs/777-golang/",
+            "platform": "djinni",
+            "mode": "skip",
+            "fields": {"title": "Go Engineer", "company_name": "Skipped Co"},
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["application_id"] is None
+    assert _count(engine, Application) == applications_before
+
+    vacancy = client.get(f"/vacancies/{body['vacancy_id']}", headers=auth_headers).json()
+    assert vacancy["archived_at"] is not None
+    assert vacancy["status"] == "archived"
+    # out of the default list, but still known to the duplicate check
+    titles = [v["title"] for v in client.get("/vacancies", headers=auth_headers).json()["items"]]
+    assert "Go Engineer" not in titles
+    duplicates = client.post(
+        "/vacancies/check-duplicates",
+        headers=auth_headers,
+        json={"title": "Go Engineer", "url": "https://djinni.co/jobs/777-golang/"},
+    ).json()
+    assert [c["vacancy_id"] for c in duplicates["candidates"]] == [body["vacancy_id"]]
+
+
 def test_commit_add_source_attaches_to_existing_vacancy(client, auth_headers, engine):
     first = client.post(
         "/vacancies/import/commit",

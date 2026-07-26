@@ -61,10 +61,10 @@ def claim_next(db: Session) -> VacancyMatchAnalysis | None:
 def run_task(db: Session, provider: AIProvider, task: VacancyMatchAnalysis) -> None:
     """Execute one claimed task. Never raises: a failure is a status on the row."""
     try:
-        vacancy, cv, profile = _load_inputs(db, task)
+        subject, cv, profile = _load_inputs(db, task)
         evidence = analysis.analyze(
             provider,
-            vacancy=vacancy,
+            subject=subject,
             cv_text=cv.extracted_text if cv else None,
             profile=profile,
             # must be the model the input hash was built from, or a cached result
@@ -181,15 +181,28 @@ class _InputsGone(Exception):
 
 def _load_inputs(
     db: Session, task: VacancyMatchAnalysis
-) -> tuple[Vacancy, CVVersion | None, CareerProfileData]:
-    vacancy = db.get(Vacancy, task.vacancy_id)
+) -> tuple[analysis.MatchSubject, CVVersion | None, CareerProfileData]:
+    """The snapshot wins over the vacancy when both exist.
+
+    A preview analysis can be attached to a vacancy while it is still in the
+    queue. Reading the vacancy then would send the model something other than
+    what `input_hash` was built from, and the result would be filed under a hash
+    that never described it.
+    """
+    subject = None
+    if task.preview_snapshot:
+        subject = analysis.MatchSubject.from_snapshot(task.preview_snapshot)
+    elif task.vacancy_id is not None:
+        vacancy = db.get(Vacancy, task.vacancy_id)
+        subject = analysis.MatchSubject.from_vacancy(vacancy) if vacancy else None
+
     profile_row = db.execute(
         select(CareerProfile).where(CareerProfile.user_id == task.user_id)
     ).scalar_one_or_none()
-    if vacancy is None or profile_row is None:
+    if subject is None or profile_row is None:
         raise _InputsGone
     cv = db.get(CVVersion, task.cv_version_id) if task.cv_version_id else None
-    return vacancy, cv, CareerProfileData.model_validate(profile_row.profile_data)
+    return subject, cv, CareerProfileData.model_validate(profile_row.profile_data)
 
 
 def _fail(db: Session, task: VacancyMatchAnalysis, code: str, *, commit: bool = True) -> None:

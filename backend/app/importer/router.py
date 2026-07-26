@@ -1,6 +1,6 @@
 import time
 from dataclasses import asdict
-from datetime import date
+from datetime import UTC, date, datetime
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -9,7 +9,7 @@ from app.applications.models import Application
 from app.applications.service import record_status_change
 from app.auth.dependencies import CurrentUser, DbSession
 from app.common.crud import get_owned_or_404
-from app.common.enums import ApplicationStatus
+from app.common.enums import ApplicationStatus, MatchStatus
 from app.common.normalize import normalize_text, normalize_url
 from app.companies.service import get_or_create_company
 from app.events.names import (
@@ -29,11 +29,15 @@ from app.importer.schemas import (
     CommitOut,
     PreviewFieldsOut,
     PreviewIn,
+    PreviewMatchIn,
     PreviewOut,
+    VacancyFieldsIn,
 )
 from app.vacancies.duplicates import check_duplicates
 from app.vacancies.models import Vacancy, VacancySource
-from app.vacancy_matches.service import queue_after_import
+from app.vacancy_matches import service as match_service
+from app.vacancy_matches.analysis import MatchSubject
+from app.vacancy_matches.schemas import MatchAnalysisOut
 
 router = APIRouter()
 
@@ -97,6 +101,10 @@ def preview_import(data: PreviewIn, current_user: CurrentUser, db: DbSession) ->
             "duration_ms": duration_ms,
         },
     )
+    # The decision comes before the save, so the score starts here rather than
+    # after the commit: it runs while the user reads the form. Silent when the
+    # profile or consent is not ready — they came to import a link.
+    analysis = match_service.queue_for_preview(db, current_user, MatchSubject(**asdict(fields)))
     db.commit()
 
     return PreviewOut(
@@ -107,6 +115,55 @@ def preview_import(data: PreviewIn, current_user: CurrentUser, db: DbSession) ->
         fields=PreviewFieldsOut(**asdict(fields)),
         warnings=result.warnings,
         duplicates=duplicates,
+        match_analysis_id=analysis.id if analysis else None,
+    )
+
+
+@router.post(
+    "/preview/match", response_model=MatchAnalysisOut, status_code=status.HTTP_202_ACCEPTED
+)
+def match_preview(
+    data: PreviewMatchIn, current_user: CurrentUser, db: DbSession, response: Response
+) -> MatchAnalysisOut:
+    """Score the preview as the user has it now.
+
+    The automatic run on preview used the fields as extracted; correcting the
+    description or the salary before saving is exactly when a second opinion is
+    worth paying for. Asked for explicitly, so unmet conditions are explained
+    here instead of being swallowed.
+    """
+    subject = _subject_from(data.fields)
+    try:
+        inputs = match_service.gather_inputs(db, current_user, subject, data.cv_version_id)
+    except match_service.PrerequisiteError as error:
+        code = (
+            status.HTTP_403_FORBIDDEN
+            if error.code == "no_consent"
+            else status.HTTP_404_NOT_FOUND
+            if error.code == "cv_not_found"
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(code, detail=error.message) from error
+
+    task, reused = match_service.queue(
+        db, current_user, subject, inputs, trigger="preview_manual", force=data.force
+    )
+    db.commit()
+    db.refresh(task)
+    if reused and task.status is MatchStatus.COMPLETED:
+        response.status_code = status.HTTP_200_OK
+    return MatchAnalysisOut.model_validate(task)
+
+
+def _subject_from(fields: VacancyFieldsIn) -> MatchSubject:
+    return MatchSubject(
+        title=fields.title,
+        company_name=fields.company_name,
+        location=fields.location,
+        salary=fields.salary,
+        work_format=fields.work_format.value,
+        job_type=fields.job_type.value,
+        description=fields.description,
     )
 
 
@@ -184,6 +241,9 @@ def commit_import(
         salary=fields.salary,
         work_format=fields.work_format,
         job_type=fields.job_type,
+        # "skip" is still a decision worth keeping: archived rather than dropped,
+        # so the same link is recognised later instead of being previewed again
+        archived_at=datetime.now(UTC) if data.mode == "skip" else None,
         sources=[VacancySource(platform=data.platform, url=data.url, normalized_url=normalized)],
     )
     db.add(vacancy)
@@ -224,9 +284,12 @@ def commit_import(
     record_event(
         db, VACANCY_SAVED, user_id=current_user.id, properties={"source": "import"}
     )
-    # The score is most useful before the user decides, so an imported vacancy is
-    # queued straight away. Silent when the profile or CV is not ready yet: the
-    # user came to save a link, not to be told what they have not filled in.
-    queue_after_import(db, current_user, vacancy)
+    # The analysis the user already saw on the preview follows the vacancy it
+    # described. Attaching first is what lets the queue below recognise it: with
+    # the fields unchanged the hashes agree and nothing is paid for twice, and
+    # an edited field is exactly when a fresh run is worth having.
+    if data.match_analysis_id is not None:
+        match_service.attach_to_vacancy(db, current_user, data.match_analysis_id, vacancy)
+    match_service.queue_after_import(db, current_user, vacancy)
     db.commit()
     return CommitOut(vacancy_id=vacancy.id, application_id=application_id, deduplicated=False)

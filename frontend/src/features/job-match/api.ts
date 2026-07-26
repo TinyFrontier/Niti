@@ -45,7 +45,8 @@ export interface ScoreBreakdown {
 
 export interface MatchAnalysis {
   id: string;
-  vacancy_id: string;
+  /** Null while the analysis belongs to an import preview that is not saved yet. */
+  vacancy_id: string | null;
   cv_version_id: string | null;
   profile_revision: number;
   status: MatchStatus;
@@ -83,6 +84,10 @@ export function getMatchSummaries(vacancyIds: string[]) {
   if (vacancyIds.length === 0) return Promise.resolve([] as MatchSummary[]);
   const query = vacancyIds.map((id) => `vacancy_ids=${id}`).join("&");
   return api<MatchSummary[]>(`/vacancy-matches/summary?${query}`);
+}
+
+export function getMatch(analysisId: string) {
+  return api<MatchAnalysis>(`/vacancy-matches/${analysisId}`);
 }
 
 export function getLatestMatch(vacancyId: string) {
