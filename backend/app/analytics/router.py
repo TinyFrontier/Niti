@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -61,10 +61,21 @@ class SummaryOut(BaseModel):
     offers: int
     rejected: int
     saved_vacancies: int
+    active_applications_added_this_week: int
+    interviews_this_week: int
+    tasks_due_today: int
+    offers_this_week: int
+    applications_moved_this_week: int
 
 
 @router.get("/summary", response_model=SummaryOut)
 def summary(current_user: CurrentUser, db: DbSession) -> SummaryOut:
+    now = datetime.now(UTC)
+    today = now.date()
+    week_start = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    week_end = week_start + timedelta(days=7)
     status_counts = _status_counts(db, current_user.id)
     total = sum(status_counts.values())
     active = sum(status_counts.get(s, 0) for s in ACTIVE_APPLICATION_STATUSES)
@@ -75,7 +86,7 @@ def summary(current_user: CurrentUser, db: DbSession) -> SummaryOut:
         .where(
             Interview.user_id == current_user.id,
             Interview.deleted_at.is_(None),
-            Interview.scheduled_at >= datetime.now(UTC),
+            Interview.scheduled_at >= now,
         )
     )
     tasks_due = db.scalar(
@@ -85,7 +96,7 @@ def summary(current_user: CurrentUser, db: DbSession) -> SummaryOut:
             Task.user_id == current_user.id,
             Task.deleted_at.is_(None),
             Task.status.in_([TaskStatus.TODO, TaskStatus.IN_PROGRESS]),
-            Task.due_date <= date.today(),
+            Task.due_date <= today,
         )
     )
     saved_vacancies = db.scalar(
@@ -97,6 +108,61 @@ def summary(current_user: CurrentUser, db: DbSession) -> SummaryOut:
             Vacancy.archived_at.is_(None),
         )
     )
+    active_added_this_week = db.scalar(
+        select(func.count())
+        .select_from(Application)
+        .where(
+            Application.user_id == current_user.id,
+            Application.deleted_at.is_(None),
+            Application.status.in_(ACTIVE_APPLICATION_STATUSES),
+            Application.created_at >= week_start,
+            Application.created_at < week_end,
+        )
+    )
+    interviews_this_week = db.scalar(
+        select(func.count())
+        .select_from(Interview)
+        .where(
+            Interview.user_id == current_user.id,
+            Interview.deleted_at.is_(None),
+            Interview.scheduled_at >= week_start,
+            Interview.scheduled_at < week_end,
+        )
+    )
+    tasks_due_today = db.scalar(
+        select(func.count())
+        .select_from(Task)
+        .where(
+            Task.user_id == current_user.id,
+            Task.deleted_at.is_(None),
+            Task.status.in_([TaskStatus.TODO, TaskStatus.IN_PROGRESS]),
+            Task.due_date == today,
+        )
+    )
+    offers_this_week = db.scalar(
+        select(func.count(func.distinct(ApplicationStatusHistory.application_id)))
+        .select_from(ApplicationStatusHistory)
+        .join(Application, Application.id == ApplicationStatusHistory.application_id)
+        .where(
+            ApplicationStatusHistory.user_id == current_user.id,
+            Application.deleted_at.is_(None),
+            ApplicationStatusHistory.to_status == ApplicationStatus.OFFER,
+            ApplicationStatusHistory.changed_at >= week_start,
+            ApplicationStatusHistory.changed_at < week_end,
+        )
+    )
+    applications_moved_this_week = db.scalar(
+        select(func.count(func.distinct(ApplicationStatusHistory.application_id)))
+        .select_from(ApplicationStatusHistory)
+        .join(Application, Application.id == ApplicationStatusHistory.application_id)
+        .where(
+            ApplicationStatusHistory.user_id == current_user.id,
+            Application.deleted_at.is_(None),
+            ApplicationStatusHistory.from_status.is_not(None),
+            ApplicationStatusHistory.changed_at >= week_start,
+            ApplicationStatusHistory.changed_at < week_end,
+        )
+    )
 
     return SummaryOut(
         total_applications=total,
@@ -106,6 +172,11 @@ def summary(current_user: CurrentUser, db: DbSession) -> SummaryOut:
         offers=status_counts.get(ApplicationStatus.OFFER, 0),
         rejected=status_counts.get(ApplicationStatus.REJECTED, 0),
         saved_vacancies=saved_vacancies or 0,
+        active_applications_added_this_week=active_added_this_week or 0,
+        interviews_this_week=interviews_this_week or 0,
+        tasks_due_today=tasks_due_today or 0,
+        offers_this_week=offers_this_week or 0,
+        applications_moved_this_week=applications_moved_this_week or 0,
     )
 
 

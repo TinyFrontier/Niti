@@ -23,6 +23,7 @@ def list_tasks(
     task_status: Annotated[TaskStatus | None, Query(alias="status")] = None,
     priority: TaskPriority | None = None,
     overdue: bool = False,
+    open_only: bool = False,
     entity_type: str | None = None,
     entity_id: uuid.UUID | None = None,
 ) -> PageOut:
@@ -40,6 +41,8 @@ def list_tasks(
             Task.due_date < date.today(),
             Task.status.in_([TaskStatus.TODO, TaskStatus.IN_PROGRESS]),
         )
+    if open_only:
+        stmt = stmt.where(Task.status.in_([TaskStatus.TODO, TaskStatus.IN_PROGRESS]))
     if entity_type is not None:
         stmt = stmt.where(Task.entity_type == entity_type)
     if entity_id is not None:

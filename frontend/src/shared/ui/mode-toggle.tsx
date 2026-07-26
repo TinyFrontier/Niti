@@ -26,16 +26,22 @@ export function ModeToggle({ inverted = false }: { inverted?: boolean }) {
         />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
-        {options.map(({ value, label, icon: Icon }) => (
-          <DropdownMenu.Item
-            key={value}
-            icon={<Icon />}
-            selected={theme === value}
-            onClick={() => setTheme(value)}
-          >
-            {label}
-          </DropdownMenu.Item>
-        ))}
+        <DropdownMenu.RadioGroup
+          value={theme}
+          onValueChange={(value) => setTheme(value as Theme)}
+        >
+          {options.map(({ value, label, icon: Icon }) => (
+            <DropdownMenu.RadioItem
+              key={value}
+              value={value}
+              icon={<Icon />}
+              closeOnClick
+            >
+              {label}
+              <DropdownMenu.RadioItemIndicator />
+            </DropdownMenu.RadioItem>
+          ))}
+        </DropdownMenu.RadioGroup>
       </DropdownMenu.Content>
     </DropdownMenu>
   );

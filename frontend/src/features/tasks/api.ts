@@ -45,6 +45,7 @@ export interface TaskListParams {
   status?: TaskStatus;
   priority?: TaskPriority;
   overdue?: boolean;
+  open_only?: boolean;
   entity_type?: EntityType;
   entity_id?: string;
 }
