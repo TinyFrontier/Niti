@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Select as KumoSelect } from "@cloudflare/kumo/components/select";
+import { cn } from "@/shared/lib/utils";
 
 type SelectValue = string | number | readonly string[];
 
@@ -66,7 +67,10 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     };
 
     return (
-      <div className={className}>
+      // Kumo sizes the trigger to its content (w-max), so a select next to an
+      // Input came out visibly narrower. Stretching it to the wrapper makes the
+      // two behave the same and lets callers size a field in one place.
+      <div className={cn("[&_button]:w-full", className)}>
         <KumoSelect
           value={currentValue}
           onValueChange={handleValueChange}

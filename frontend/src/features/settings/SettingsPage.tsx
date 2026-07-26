@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Briefcase, Check, Layers, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -95,6 +96,22 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {(user?.role === "job_seeker" || user?.role === "mix") && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-base">Career profile</CardTitle>
+            <CardDescription>
+              What Niti compares vacancies against when scoring how well they fit.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" size="sm">
+              <Link to="/career-profile">Open career profile</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <SessionsSection />
     </div>

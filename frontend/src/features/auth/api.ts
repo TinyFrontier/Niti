@@ -9,6 +9,10 @@ export interface User {
   full_name: string | null;
   role: UserRole | null;
   created_at: string;
+  /** Null keeps the user in the onboarding wizard. */
+  onboarding_completed_at: string | null;
+  /** Consent to send documents to the external AI provider. */
+  ai_consent_at: string | null;
 }
 
 export interface TokenResponse {
@@ -29,8 +33,20 @@ export function getMe() {
   return api<User>("/auth/me");
 }
 
-export function updateMe(payload: { full_name?: string | null; role?: UserRole }) {
+export function updateMe(payload: {
+  full_name?: string | null;
+  role?: UserRole;
+  ai_consent?: boolean;
+}) {
   return api<User>("/auth/me", { method: "PATCH", body: payload });
+}
+
+/** Lets the user into the app, whether they filled the profile or skipped it. */
+export function completeOnboarding(skippedAtStep?: number) {
+  return api<User>("/auth/onboarding/complete", {
+    method: "POST",
+    params: skippedAtStep === undefined ? undefined : { skipped_at_step: skippedAtStep },
+  });
 }
 
 export interface SessionOut {

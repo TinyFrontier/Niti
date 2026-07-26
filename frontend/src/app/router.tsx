@@ -138,6 +138,10 @@ export const router = createBrowserRouter([
                 lazy: async () => ({ Component: (await import("@/features/contacts/ContactFormPage")).ContactFormPage }),
               },
               {
+                path: "career-profile",
+                lazy: async () => ({ Component: (await import("@/features/career-profile/CareerProfilePage")).CareerProfilePage }),
+              },
+              {
                 path: "cv-library",
                 lazy: async () => ({ Component: (await import("@/features/cv-library/CVLibraryPage")).CVLibraryPage }),
               },

@@ -30,6 +30,7 @@ import {
 } from "@/features/dashboard/api";
 import { listInterviews } from "@/features/interviews/api";
 import { listTasks, type EntityType, type Task } from "@/features/tasks/api";
+import { ProfileReminder } from "@/features/career-profile/ProfileReminder";
 import { PasteLinkCard } from "@/features/vacancies/PasteLinkCard";
 import { humanize } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
@@ -352,6 +353,8 @@ export function DashboardPage() {
           Some dashboard metrics could not be loaded.
         </div>
       )}
+
+      <ProfileReminder />
 
       <PasteLinkCard source="dashboard" />
 

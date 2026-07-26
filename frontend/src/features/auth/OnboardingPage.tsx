@@ -1,108 +1,200 @@
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Briefcase, Layers, Users } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { getMe, updateMe, type UserRole } from "@/features/auth/api";
-import { cn } from "@/shared/lib/utils";
+import { completeOnboarding, getMe, updateMe, type UserRole } from "@/features/auth/api";
+import { RoleStep } from "@/features/auth/onboarding/RoleStep";
+import { SourceStep } from "@/features/auth/onboarding/SourceStep";
+import {
+  confirmCareerProfile,
+  getCareerProfile,
+  patchCareerProfile,
+  EMPTY_PROFILE,
+  type CareerProfileData,
+  type ProfileDraft,
+} from "@/features/career-profile/api";
+import { LocationSection } from "@/features/career-profile/sections/LocationSection";
+import { PreferencesSection } from "@/features/career-profile/sections/PreferencesSection";
+import { RoleSection } from "@/features/career-profile/sections/RoleSection";
+import { ThreadStepper, type ThreadStep } from "@/features/vacancies/ThreadStepper";
+import { ApiError } from "@/shared/api/client";
 import { BrandLogo } from "@/shared/ui/brand-logo";
-import { Skeleton } from "@/shared/ui/skeleton";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent } from "@/shared/ui/card";
 import { ModeToggle } from "@/shared/ui/mode-toggle";
+import { Skeleton } from "@/shared/ui/skeleton";
 
-interface RoleCard {
-  role: UserRole;
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  accent: string;
-}
+const STEP_LABELS = ["Role", "About you", "Experience", "Location", "Preferences"];
 
-const ROLE_CARDS: RoleCard[] = [
-  {
-    role: "job_seeker",
-    icon: Briefcase,
-    title: "Job Seeker",
-    description: "Track vacancies, applications, CV versions and interviews in one place.",
-    accent: "bg-info-subtle text-info",
+const HEADINGS: Record<number, { title: string; hint: string }> = {
+  0: { title: "How are you going to use Niti?", hint: "This decides what the app shows you." },
+  1: {
+    title: "Let's start from what you already have",
+    hint: "A CV, a few sentences, or neither — you can fill everything in by hand.",
   },
-  {
-    role: "recruiter",
-    icon: Users,
-    title: "Recruiter",
-    description: "Run a contacts CRM: candidates, companies, communication and follow-ups.",
-    accent: "bg-success-subtle text-success",
-  },
-  {
-    role: "mix",
-    icon: Layers,
-    title: "Mix",
-    description: "Both worlds — search for a job while managing your whole network.",
-    accent: "bg-primary-subtle text-primary",
-  },
-];
+  2: { title: "Your role and experience", hint: "Check anything marked, then continue." },
+  3: { title: "Where and how you want to work", hint: "This is what rules vacancies in or out." },
+  4: { title: "Languages and deal breakers", hint: "The last step." },
+};
 
 export function OnboardingPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: user, isLoading } = useQuery({ queryKey: ["auth", "me"], queryFn: getMe });
 
-  const mutation = useMutation({
+  const { data: saved } = useQuery({ queryKey: ["career-profile"], queryFn: getCareerProfile });
+
+  const [step, setStep] = useState(0);
+  const [data, setData] = useState<CareerProfileData>(EMPTY_PROFILE);
+  const [sources, setSources] = useState<ProfileDraft["sources"]>({});
+  const [error, setError] = useState<string | null>(null);
+
+  // Steps save as they go, so a wizard left half-finished resumes instead of
+  // starting over: the role is already picked and the answers are on the server.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current || !user || !saved) return;
+    resumed.current = true;
+    if (!user.role) return;
+    setData(saved.data);
+    // past the source step once there are answers to come back to
+    setStep(saved.updated_at ? 2 : 1);
+  }, [user, saved]);
+
+  const finish = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    navigate("/", { replace: true });
+  };
+
+  const pickRole = useMutation({
     mutationFn: (role: UserRole) => updateMe({ role }),
     onSuccess: (updated) => {
       queryClient.setQueryData(["auth", "me"], updated);
-      navigate("/", { replace: true });
+      // a recruiter has no profile to fill, so the backend already let them in
+      if (updated.onboarding_completed_at) navigate("/", { replace: true });
+      else setStep(1);
     },
+  });
+
+  const skip = useMutation({
+    mutationFn: () => completeOnboarding(step),
+    onSuccess: finish,
+  });
+
+  const save = useMutation({
+    mutationFn: async (patch: Partial<CareerProfileData>) => {
+      await patchCareerProfile(patch);
+      if (step === 4) {
+        await confirmCareerProfile();
+        await completeOnboarding();
+      }
+    },
+    onSuccess: () => {
+      setError(null);
+      if (step === 4) void finish();
+      else setStep(step + 1);
+    },
+    onError: (caught) =>
+      setError(caught instanceof ApiError ? caught.detail : "Could not save. Try again."),
   });
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center p-6">
         <Skeleton className="h-64 w-full max-w-3xl" />
       </div>
     );
   }
-  if (user?.role) {
-    return <Navigate to="/" replace />;
-  }
+  if (user?.onboarding_completed_at) return <Navigate to="/" replace />;
+
+  const steps: ThreadStep[] = STEP_LABELS.map((label, index) => ({
+    label,
+    state: index < step ? "done" : index === step ? "active" : "todo",
+  }));
+  const heading = HEADINGS[step];
+  const busy = save.isPending || skip.isPending || pickRole.isPending;
+
+  const sectionProps = {
+    value: data,
+    sources,
+    onChange: (patch: Partial<CareerProfileData>) =>
+      setData((current) => ({ ...current, ...patch })),
+  };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-6">
-      <div className="absolute right-4 top-4"><ModeToggle /></div>
-      <BrandLogo className="mb-4 h-12" />
-      <h1 className="text-2xl font-semibold tracking-tight">
-        Welcome{user?.full_name ? `, ${user.full_name}` : ""}!
-      </h1>
-      <p className="mt-1 text-muted-foreground">How are you going to use Niti?</p>
-
-      <div className="mt-8 grid w-full max-w-4xl gap-4 sm:grid-cols-3">
-        {ROLE_CARDS.map(({ role, icon: Icon, title, description, accent }) => (
-          <button
-            key={role}
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate(role)}
-            className={cn(
-              "group flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-raised p-8 text-center shadow-card transition-all",
-              "hover:-translate-y-1 hover:border-primary/40 hover:shadow-overlay",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              "disabled:pointer-events-none disabled:opacity-60",
-            )}
-          >
-            <div
-              className={cn(
-                "flex size-14 items-center justify-center rounded-lg transition-transform group-hover:scale-105",
-                accent,
-              )}
-            >
-              <Icon className="size-7" />
-            </div>
-            <span className="text-lg font-semibold">{title}</span>
-            <span className="text-sm leading-relaxed text-muted-foreground">{description}</span>
-          </button>
-        ))}
+    <div className="relative flex min-h-screen flex-col items-center bg-background p-6">
+      <div className="absolute right-4 top-4">
+        <ModeToggle />
       </div>
+      <BrandLogo className="mb-6 mt-4 h-11" />
 
-      <p className="mt-6 text-xs text-muted-foreground">
-        You can change this any time in Settings.
-      </p>
+      <div className="w-full max-w-3xl">
+        <ThreadStepper steps={steps} className="mb-8" />
+
+        <h1 className="text-center text-2xl font-semibold tracking-tight">{heading.title}</h1>
+        <p className="mt-1 text-center text-muted-foreground">{heading.hint}</p>
+
+        <div className="mt-8">
+          {step === 0 && <RoleStep onPick={pickRole.mutate} disabled={busy} />}
+
+          {step > 0 && (
+            <Card>
+              <CardContent className="p-6">
+                {step === 1 && (
+                  <SourceStep
+                    busy={busy}
+                    onSkip={() => setStep(2)}
+                    onDrafted={(draft) => {
+                      setData(draft.data);
+                      setSources(draft.sources);
+                      setStep(2);
+                    }}
+                  />
+                )}
+                {step === 2 && <RoleSection {...sectionProps} />}
+                {step === 3 && <LocationSection {...sectionProps} />}
+                {step === 4 && <PreferencesSection {...sectionProps} />}
+
+                {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+                {step > 1 && (
+                  <div className="mt-6 flex items-center justify-between gap-2 border-t border-kumo-hairline pt-4">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setStep(step - 1)}
+                      disabled={busy}
+                    >
+                      Back
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => skip.mutate()}
+                        disabled={busy}
+                      >
+                        Finish later
+                      </Button>
+                      <Button type="button" onClick={() => save.mutate(data)} disabled={busy}>
+                        {step === 4 ? "Save profile" : "Continue"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {step === 1 && (
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            <button className="hover:underline" onClick={() => skip.mutate()} disabled={busy}>
+              Skip for now
+            </button>{" "}
+            — you can fill the profile any time in Settings.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
