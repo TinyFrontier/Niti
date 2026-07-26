@@ -14,8 +14,23 @@ export const JOB_TYPES = [
   "unknown",
 ] as const;
 
+/** Derived server-side from the latest linked application; never sent on write. */
+export const VACANCY_STATUSES = [
+  "saved",
+  "applied",
+  "interview",
+  "offer",
+  "closed",
+  "archived",
+] as const;
+export const VACANCY_TABS = ["all", "saved", "applied", "archived"] as const;
+export const VACANCY_SORTS = ["newest", "oldest", "title", "company"] as const;
+
 export type WorkFormat = (typeof WORK_FORMATS)[number];
 export type JobType = (typeof JOB_TYPES)[number];
+export type VacancyStatus = (typeof VACANCY_STATUSES)[number];
+export type VacancyTab = (typeof VACANCY_TABS)[number];
+export type VacancySort = (typeof VACANCY_SORTS)[number];
 
 export interface VacancySource {
   id: string;
@@ -33,6 +48,7 @@ export interface Vacancy {
   salary: string | null;
   work_format: WorkFormat;
   job_type: JobType;
+  status: VacancyStatus;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -59,7 +75,23 @@ export interface VacancyListParams {
   job_type?: JobType;
   company_id?: string;
   archived?: boolean;
+  tab?: VacancyTab;
+  status?: VacancyStatus;
+  sort?: VacancySort;
 }
+
+/** Counters behind the tabs; they honour the active search and filters. */
+export interface VacancyStats {
+  all: number;
+  saved: number;
+  applied: number;
+  archived: number;
+}
+
+export type VacancyStatsParams = Pick<
+  VacancyListParams,
+  "search" | "work_format" | "job_type" | "company_id"
+>;
 
 export interface DuplicateCandidate {
   vacancy_id: string;
@@ -72,6 +104,10 @@ export interface DuplicateCandidate {
 
 export function listVacancies(params: VacancyListParams = {}) {
   return api<Page<Vacancy>>("/vacancies", { params: { ...params } });
+}
+
+export function getVacancyStats(params: VacancyStatsParams = {}) {
+  return api<VacancyStats>("/vacancies/stats", { params: { ...params } });
 }
 
 export function getVacancy(id: string) {

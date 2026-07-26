@@ -24,6 +24,10 @@ def _loaded(stmt):
         selectinload(Interview.application).selectinload(Application.vacancy).selectinload(
             Vacancy.sources
         ),
+        # VacancyOut.status derives from these
+        selectinload(Interview.application).selectinload(Application.vacancy).selectinload(
+            Vacancy.applications
+        ),
         selectinload(Interview.application).selectinload(Application.cv_version),
     )
 

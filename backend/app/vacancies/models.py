@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.common.enums import JobType, WorkFormat
+from app.common.enums import JobType, VacancyStatus, WorkFormat
 from app.common.model_mixins import (
     OwnedMixin,
     SoftDeleteMixin,
@@ -14,6 +14,7 @@ from app.common.model_mixins import (
     str_enum,
 )
 from app.core.database import Base
+from app.vacancies.status import status_from_application
 
 if TYPE_CHECKING:
     from app.applications.models import Application
@@ -47,6 +48,15 @@ class Vacancy(UUIDPkMixin, OwnedMixin, TimestampMixin, SoftDeleteMixin, Base):
         back_populates="vacancy", cascade="all, delete-orphan"
     )
     applications: Mapped[list["Application"]] = relationship(back_populates="vacancy")
+
+    @property
+    def status(self) -> VacancyStatus:
+        """Archiving wins; otherwise the newest live application decides."""
+        if self.archived_at is not None:
+            return VacancyStatus.ARCHIVED
+        live = [a for a in self.applications if a.deleted_at is None]
+        latest = max(live, key=lambda a: a.created_at, default=None)
+        return status_from_application(latest.status if latest else None)
 
 
 class VacancySource(UUIDPkMixin, TimestampMixin, Base):

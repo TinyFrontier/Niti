@@ -16,7 +16,8 @@ export function PasteLinkCard({ source, compact = false }: PasteLinkCardProps) {
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const isDashboard = source === "dashboard" && !compact;
+  // the full-width hero is shared by the dashboard and the vacancies page
+  const showcase = !compact;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,54 +37,103 @@ export function PasteLinkCard({ source, compact = false }: PasteLinkCardProps) {
     navigate(`/vacancies/import?${params.toString()}`);
   }
 
+  if (showcase) {
+    return (
+      <Card className="dashboard-import-card mb-5">
+        <div className="dashboard-import-thread-left" aria-hidden="true">
+          <span className="dashboard-import-thread-left-step-one-down" />
+          <span className="dashboard-import-thread-left-step-one-out" />
+          <span className="dashboard-import-thread-left-step-two-down" />
+          <span className="dashboard-import-thread-left-step-two-out" />
+          <span className="dashboard-import-thread-left-tail" />
+          <span className="dashboard-import-thread-dot" />
+        </div>
+        <div className="dashboard-import-thread-right hidden 2xl:block" aria-hidden="true">
+          <span className="dashboard-import-thread-right-tail" />
+          <span className="dashboard-import-thread-right-dot" />
+          <span className="dashboard-import-thread-right-rise" />
+          <span className="dashboard-import-thread-right-top" />
+          <span className="dashboard-import-thread-target">
+            <span />
+          </span>
+        </div>
+
+        <div className="dashboard-import-layout">
+          <div className="dashboard-import-icon">
+            <Link2 className="size-7 -rotate-45" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="dashboard-import-title">Add a vacancy in seconds</h2>
+            <p className="dashboard-import-description">
+              Paste a job link and Niti will capture the details for you.
+            </p>
+            <form onSubmit={handleSubmit} className="dashboard-import-form">
+              <div className="min-w-0">
+                <div className="dashboard-import-input-wrap">
+                  <Link2
+                    aria-hidden="true"
+                    className="dashboard-import-input-icon size-5 -rotate-45"
+                  />
+                  <Input
+                    type="url"
+                    inputMode="url"
+                    aria-label="Job posting link"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `paste-link-error-${source}` : undefined}
+                    placeholder="Paste a vacancy URL..."
+                    value={url}
+                    onChange={(event) => setUrl(event.target.value)}
+                    className="dashboard-import-input"
+                  />
+                </div>
+                {error && (
+                  <p
+                    id={`paste-link-error-${source}`}
+                    className="dashboard-import-error text-xs text-destructive"
+                  >
+                    {error}
+                  </p>
+                )}
+              </div>
+              <Button type="submit" className="dashboard-import-button">
+                Import vacancy
+              </Button>
+            </form>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card
       className={cn(
         compact ? "mb-4" : "mb-5",
-        isDashboard &&
-          "relative overflow-hidden border-kumo-line bg-gradient-to-br from-kumo-base to-primary-subtle/35 shadow-card",
       )}
     >
       <CardHeader
         className={cn(
           compact && "p-4 pb-2 sm:p-4 sm:pb-2",
-          isDashboard && "relative z-10 p-5 pb-3 sm:p-6 sm:pb-3",
         )}
       >
-        <div className={cn("flex items-start gap-3", isDashboard && "gap-4")}>
+        <div className="flex items-start gap-3">
           <div
-            className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary",
-              isDashboard && "size-12 rounded-2xl bg-primary-subtle",
-            )}
+            className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
           >
-            <Link2 className={isDashboard ? "size-6" : "size-4"} />
+            <Link2 className="size-4" />
           </div>
           <div>
-            <CardTitle className={cn("text-base", isDashboard && "text-xl sm:text-2xl")}>
-              {isDashboard ? "Add a vacancy in seconds" : "Add a job from a link"}
-            </CardTitle>
-            <CardDescription className={cn("mt-1", isDashboard && "text-sm sm:text-base")}>
-              {isDashboard
-                ? "Paste a job link and Niti will capture the details for you."
-                : "Paste a public job posting and review the details before saving."}
+            <CardTitle className="text-base">Add a job from a link</CardTitle>
+            <CardDescription className="mt-1">
+              Paste a public job posting and review the details before saving.
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent
-        className={cn(
-          compact && "p-4 pt-2 sm:p-4 sm:pt-2",
-          isDashboard && "relative z-10 p-5 pt-1 sm:p-6 sm:pt-1",
-        )}
+        className={cn(compact && "p-4 pt-2 sm:p-4 sm:pt-2")}
       >
-        <form
-          onSubmit={handleSubmit}
-          className={cn(
-            "flex flex-col gap-2 sm:flex-row",
-            isDashboard && "sm:ml-16 sm:max-w-[48rem]",
-          )}
-        >
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
           <div className="min-w-0 flex-1">
             <Input
               type="url"
@@ -91,10 +141,9 @@ export function PasteLinkCard({ source, compact = false }: PasteLinkCardProps) {
               aria-label="Job posting link"
               aria-invalid={Boolean(error)}
               aria-describedby={error ? `paste-link-error-${source}` : undefined}
-              placeholder={isDashboard ? "Paste a vacancy URL..." : "https://company.com/jobs/..."}
+              placeholder="https://company.com/jobs/..."
               value={url}
               onChange={(event) => setUrl(event.target.value)}
-              className={isDashboard ? "h-11 rounded-xl bg-kumo-base" : undefined}
             />
             {error && (
               <p id={`paste-link-error-${source}`} className="mt-1 text-xs text-destructive">
@@ -102,17 +151,11 @@ export function PasteLinkCard({ source, compact = false }: PasteLinkCardProps) {
               </p>
             )}
           </div>
-          <Button type="submit" className={cn("shrink-0", isDashboard && "h-11 px-6")}>
-            {isDashboard ? "Import vacancy" : "Import from link"}
+          <Button type="submit" className="shrink-0">
+            Import from link
           </Button>
         </form>
       </CardContent>
-      {isDashboard && (
-        <div
-          aria-hidden="true"
-          className="absolute -right-12 -top-16 size-48 rounded-full border border-primary/10 bg-primary/5"
-        />
-      )}
     </Card>
   );
 }

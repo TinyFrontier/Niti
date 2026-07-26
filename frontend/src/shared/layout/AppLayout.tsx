@@ -20,6 +20,7 @@ import { BrandMark } from "@/shared/ui/brand-mark";
 import { Button } from "@/shared/ui/button";
 import { ModeToggle } from "@/shared/ui/mode-toggle";
 import { GlobalSearch } from "@/shared/layout/GlobalSearch";
+import { PageTitleProvider, usePageTitle } from "@/shared/layout/page-title";
 
 const SEEKER_ROLES: UserRole[] = ["job_seeker", "mix"];
 
@@ -54,12 +55,13 @@ function getGreeting() {
   return "Good evening";
 }
 
-export function AppLayout() {
+function AppShell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { pathname } = useLocation();
   const { data: user } = useQuery({ queryKey: ["auth", "me"], queryFn: getMe });
   const isDashboard = pathname === "/";
+  const pageTitle = usePageTitle()?.title ?? null;
 
   const visibleItems = navItems.filter(
     (item) => !item.roles || !user?.role || item.roles.includes(user.role),
@@ -79,9 +81,14 @@ export function AppLayout() {
   };
 
   return (
-    <Sidebar.Provider className="min-h-svh bg-kumo-canvas" defaultOpen collapsible="icon" peekable>
+    <Sidebar.Provider
+      className="h-svh overflow-hidden bg-kumo-canvas"
+      defaultOpen
+      collapsible="icon"
+      peekable
+    >
       <Sidebar
-        className="h-svh self-start border-r border-kumo-hairline bg-kumo-base"
+        className="h-svh shrink-0 self-start border-r border-kumo-hairline bg-kumo-base"
         contentClassName="h-svh"
       >
         <Sidebar.Header className="h-24 px-4">
@@ -150,7 +157,7 @@ export function AppLayout() {
         <Sidebar.Rail />
       </Sidebar>
 
-      <div className="flex min-h-svh min-w-0 flex-1 flex-col bg-kumo-canvas">
+      <div className="flex h-svh min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-kumo-canvas">
         <header className="sticky top-0 z-30 border-b border-kumo-hairline bg-kumo-canvas/92 backdrop-blur-xl">
           <div className="flex min-h-16 items-center gap-3 px-4 md:min-h-24 md:px-6 lg:px-10">
             <div className="flex items-center md:hidden">
@@ -165,6 +172,17 @@ export function AppLayout() {
                 <p className="mt-1 text-sm text-kumo-subtle">
                   Here&apos;s what needs your attention today.
                 </p>
+              </div>
+            ) : pageTitle ? (
+              <div className="hidden min-w-[16rem] max-w-[28rem] lg:block">
+                <h1 className="truncate text-2xl font-semibold tracking-tight text-kumo-strong">
+                  {pageTitle.title}
+                </h1>
+                {pageTitle.description && (
+                  <p className="mt-1 truncate text-sm text-kumo-subtle">
+                    {pageTitle.description}
+                  </p>
+                )}
               </div>
             ) : (
               <div className="hidden min-w-[10rem] text-sm text-kumo-subtle lg:block">
@@ -184,24 +202,34 @@ export function AppLayout() {
               </div>
             </div>
           </div>
-          {isDashboard && (
+          {(isDashboard || pageTitle) && (
             <div className="px-4 pb-3 lg:hidden">
               <p className="text-sm font-semibold text-kumo-strong">
-                {getGreeting()}, {firstName}
+                {isDashboard ? `${getGreeting()}, ${firstName}` : pageTitle?.title}
               </p>
               <p className="mt-0.5 text-xs text-kumo-subtle">
-                Here&apos;s what needs your attention today.
+                {isDashboard
+                  ? "Here's what needs your attention today."
+                  : pageTitle?.description}
               </p>
             </div>
           )}
         </header>
 
-        <main className="min-w-0 flex-1">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="mx-auto w-full max-w-[90rem] px-4 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8">
             <Outlet />
           </div>
         </main>
       </div>
     </Sidebar.Provider>
+  );
+}
+
+export function AppLayout() {
+  return (
+    <PageTitleProvider>
+      <AppShell />
+    </PageTitleProvider>
   );
 }

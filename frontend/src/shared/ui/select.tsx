@@ -72,6 +72,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           onValueChange={handleValueChange}
           disabled={disabled}
           required={required}
+          // without renderValue Kumo shows the raw value instead of the option label
+          renderValue={(selected) =>
+            options.find((option) => option.value === String(selected ?? ""))?.label ?? null
+          }
+          placeholder={options.find((option) => option.value === "")?.label as string | undefined}
           aria-label={ariaLabel ?? (ariaLabelledBy ? undefined : props.title ?? name ?? "Select option")}
         >
           {options.map((option) => (

@@ -33,6 +33,64 @@ def test_vacancy_crud_with_company_autocreate(client, auth_headers):
     assert client.get(f"/vacancies/{vacancy['id']}", headers=auth_headers).status_code == 404
 
 
+def test_derived_status_tabs_and_stats(client, auth_headers):
+    def create(title: str) -> str:
+        response = client.post("/vacancies", headers=auth_headers, json={"title": title})
+        assert response.status_code == 201, response.text
+        return response.json()["id"]
+
+    saved_id = create("Saved role")
+    applied_id = create("Applied role")
+    interview_id = create("Interview role")
+    archived_id = create("Archived role")
+
+    client.post(
+        "/applications",
+        headers=auth_headers,
+        json={"vacancy_id": applied_id, "status": "applied"},
+    )
+    client.post(
+        "/applications",
+        headers=auth_headers,
+        json={"vacancy_id": interview_id, "status": "technical_interview"},
+    )
+    client.post(f"/vacancies/{archived_id}/archive", headers=auth_headers)
+
+    def status_of(vacancy_id: str) -> str:
+        return client.get(f"/vacancies/{vacancy_id}", headers=auth_headers).json()["status"]
+
+    assert status_of(saved_id) == "saved"
+    assert status_of(applied_id) == "applied"
+    assert status_of(interview_id) == "interview"
+    # archiving wins over whatever the application says
+    assert status_of(archived_id) == "archived"
+
+    def titles(**params) -> set[str]:
+        response = client.get("/vacancies", headers=auth_headers, params=params)
+        return {v["title"] for v in response.json()["items"]}
+
+    assert titles(tab="saved") == {"Saved role"}
+    # the applied tab groups everything past "saved", interviews included
+    assert titles(tab="applied") == {"Applied role", "Interview role"}
+    assert titles(tab="archived") == {"Archived role"}
+    assert len(titles(tab="all")) == 4
+
+    stats = client.get("/vacancies/stats", headers=auth_headers).json()
+    assert stats == {"all": 4, "saved": 1, "applied": 2, "archived": 1}
+
+    # counters follow the active search
+    scoped = client.get("/vacancies/stats", headers=auth_headers, params={"search": "Saved"}).json()
+    assert scoped == {"all": 1, "saved": 1, "applied": 0, "archived": 0}
+
+    ordered = client.get("/vacancies", headers=auth_headers, params={"tab": "all", "sort": "title"})
+    assert [v["title"] for v in ordered.json()["items"]] == [
+        "Applied role",
+        "Archived role",
+        "Interview role",
+        "Saved role",
+    ]
+
+
 def test_duplicate_detection(client, auth_headers):
     client.post(
         "/vacancies",

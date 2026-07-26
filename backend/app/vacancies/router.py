@@ -1,13 +1,22 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from app.applications.models import Application
 from app.auth.dependencies import CurrentUser, DbSession
 from app.common.crud import get_owned_or_404, paginate
-from app.common.enums import JobType, WorkFormat
+from app.common.enums import (
+    ApplicationStatus,
+    JobType,
+    VacancySort,
+    VacancyStatus,
+    VacancyTab,
+    WorkFormat,
+)
 from app.common.normalize import normalize_text, normalize_url
 from app.common.schemas import PageDep, PageOut
 from app.companies.models import Company
@@ -22,8 +31,10 @@ from app.vacancies.schemas import (
     VacancyCreate,
     VacancyOut,
     VacancySourceIn,
+    VacancyStatsOut,
     VacancyUpdate,
 )
+from app.vacancies.status import application_statuses_for
 
 router = APIRouter()
 
@@ -51,7 +62,79 @@ def _build_sources(sources: list[VacancySourceIn]) -> list[VacancySource]:
 
 
 def _loaded(stmt):
-    return stmt.options(selectinload(Vacancy.company), selectinload(Vacancy.sources))
+    return stmt.options(
+        selectinload(Vacancy.company),
+        selectinload(Vacancy.sources),
+        selectinload(Vacancy.applications),
+    )
+
+
+# status of the newest live application, or NULL when the vacancy has none
+_LATEST_APPLICATION_STATUS = (
+    select(Application.status)
+    .where(Application.vacancy_id == Vacancy.id, Application.deleted_at.is_(None))
+    .order_by(Application.created_at.desc())
+    .limit(1)
+    .correlate(Vacancy)
+    .scalar_subquery()
+)
+
+_TAB_CONDITIONS = {
+    VacancyTab.ARCHIVED: lambda: Vacancy.archived_at.is_not(None),
+    VacancyTab.SAVED: lambda: Vacancy.archived_at.is_(None)
+    & (
+        _LATEST_APPLICATION_STATUS.is_(None)
+        | (_LATEST_APPLICATION_STATUS == ApplicationStatus.SAVED)
+    ),
+    VacancyTab.APPLIED: lambda: Vacancy.archived_at.is_(None)
+    & _LATEST_APPLICATION_STATUS.is_not(None)
+    & (_LATEST_APPLICATION_STATUS != ApplicationStatus.SAVED),
+}
+
+
+def _status_condition(vacancy_status: VacancyStatus):
+    """Filter on the derived status; mirrors Vacancy.status, archiving first."""
+    if vacancy_status is VacancyStatus.ARCHIVED:
+        return Vacancy.archived_at.is_not(None)
+    matching = application_statuses_for(vacancy_status)
+    condition = _LATEST_APPLICATION_STATUS.in_(matching)
+    if vacancy_status is VacancyStatus.SAVED:
+        condition = condition | _LATEST_APPLICATION_STATUS.is_(None)
+    return Vacancy.archived_at.is_(None) & condition
+
+
+_SORT_CLAUSES = {
+    VacancySort.NEWEST: lambda: Vacancy.created_at.desc(),
+    VacancySort.OLDEST: lambda: Vacancy.created_at.asc(),
+    VacancySort.TITLE: lambda: Vacancy.title.asc(),
+    VacancySort.COMPANY: lambda: Company.name.asc().nulls_last(),
+}
+
+
+def _filtered_stmt(
+    user_id: uuid.UUID,
+    search: str | None,
+    work_format: WorkFormat | None,
+    job_type: JobType | None,
+    company_id: uuid.UUID | None,
+):
+    """Everything except the tab/archived split, which the counters vary over."""
+    stmt = (
+        select(Vacancy)
+        .outerjoin(Company, Vacancy.company_id == Company.id)
+        .where(Vacancy.user_id == user_id, Vacancy.deleted_at.is_(None))
+    )
+    if search:
+        stmt = stmt.where(
+            Vacancy.title.ilike(f"%{search}%") | Company.name.ilike(f"%{search}%")
+        )
+    if work_format is not None:
+        stmt = stmt.where(Vacancy.work_format == work_format)
+    if job_type is not None:
+        stmt = stmt.where(Vacancy.job_type == job_type)
+    if company_id is not None:
+        stmt = stmt.where(Vacancy.company_id == company_id)
+    return stmt
 
 
 @router.get("", response_model=PageOut[VacancyOut])
@@ -64,27 +147,47 @@ def list_vacancies(
     job_type: JobType | None = None,
     company_id: uuid.UUID | None = None,
     archived: bool = False,
+    tab: VacancyTab | None = None,
+    vacancy_status: Annotated[VacancyStatus | None, Query(alias="status")] = None,
+    sort: VacancySort = VacancySort.NEWEST,
 ) -> PageOut:
-    stmt = _loaded(
-        select(Vacancy)
-        .where(Vacancy.user_id == current_user.id, Vacancy.deleted_at.is_(None))
-        .order_by(Vacancy.created_at.desc())
-    )
-    stmt = stmt.where(
-        Vacancy.archived_at.is_not(None) if archived else Vacancy.archived_at.is_(None)
-    )
-    if search:
-        stmt = stmt.outerjoin(Company, Vacancy.company_id == Company.id).where(
-            Vacancy.title.ilike(f"%{search}%") | Company.name.ilike(f"%{search}%")
+    stmt = _loaded(_filtered_stmt(current_user.id, search, work_format, job_type, company_id))
+    if vacancy_status is not None:
+        stmt = stmt.where(_status_condition(vacancy_status))
+    if tab is not None:
+        condition = _TAB_CONDITIONS.get(tab)
+        if condition is not None:
+            stmt = stmt.where(condition())
+    else:
+        stmt = stmt.where(
+            Vacancy.archived_at.is_not(None) if archived else Vacancy.archived_at.is_(None)
         )
-    if work_format is not None:
-        stmt = stmt.where(Vacancy.work_format == work_format)
-    if job_type is not None:
-        stmt = stmt.where(Vacancy.job_type == job_type)
-    if company_id is not None:
-        stmt = stmt.where(Vacancy.company_id == company_id)
+    stmt = stmt.order_by(_SORT_CLAUSES[sort]())
     items, total = paginate(db, stmt, params.page, params.page_size)
     return PageOut(items=items, total=total, page=params.page, page_size=params.page_size)
+
+
+@router.get("/stats", response_model=VacancyStatsOut)
+def vacancy_stats(
+    current_user: CurrentUser,
+    db: DbSession,
+    search: str | None = None,
+    work_format: WorkFormat | None = None,
+    job_type: JobType | None = None,
+    company_id: uuid.UUID | None = None,
+) -> VacancyStatsOut:
+    base = _filtered_stmt(current_user.id, search, work_format, job_type, company_id)
+
+    def count(condition=None) -> int:
+        stmt = base if condition is None else base.where(condition)
+        return db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+
+    return VacancyStatsOut(
+        all=count(),
+        saved=count(_TAB_CONDITIONS[VacancyTab.SAVED]()),
+        applied=count(_TAB_CONDITIONS[VacancyTab.APPLIED]()),
+        archived=count(_TAB_CONDITIONS[VacancyTab.ARCHIVED]()),
+    )
 
 
 @router.post("", response_model=VacancyOut, status_code=status.HTTP_201_CREATED)

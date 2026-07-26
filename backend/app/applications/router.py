@@ -31,6 +31,8 @@ def _loaded(stmt):
     return stmt.options(
         selectinload(Application.vacancy).selectinload(Vacancy.company),
         selectinload(Application.vacancy).selectinload(Vacancy.sources),
+        # VacancyOut.status derives from these
+        selectinload(Application.vacancy).selectinload(Vacancy.applications),
         selectinload(Application.cv_version),
     )
 

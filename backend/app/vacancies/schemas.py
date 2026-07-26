@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.common.enums import JobType, WorkFormat
+from app.common.enums import JobType, VacancyStatus, WorkFormat
 from app.companies.schemas import CompanyOut
 
 
@@ -60,11 +60,22 @@ class VacancyOut(BaseModel):
     salary: str | None
     work_format: WorkFormat
     job_type: JobType
+    # derived from the latest linked application, see Vacancy.status
+    status: VacancyStatus
     archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
     company: CompanyOut | None
     sources: list[VacancySourceOut]
+
+
+class VacancyStatsOut(BaseModel):
+    """Tab counters; every counter honours the active search and filters."""
+
+    all: int
+    saved: int
+    applied: int
+    archived: int
 
 
 class CheckDuplicatesIn(BaseModel):

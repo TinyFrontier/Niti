@@ -4,7 +4,7 @@ import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, FileText, Tag } from "lucide-react";
 import { checkDuplicates, JOB_TYPES, WORK_FORMATS } from "@/features/vacancies/api";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { humanize } from "@/shared/lib/format";
@@ -15,6 +15,30 @@ import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { Select } from "@/shared/ui/select";
 import { Textarea } from "@/shared/ui/textarea";
+
+function FormSection({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof FileText;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-5 sm:p-6">
+        <div className="mb-5 flex items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-subtle text-primary">
+            <Icon className="size-4" />
+          </span>
+          <h2 className="text-base font-semibold text-kumo-strong">{title}</h2>
+        </div>
+        <div className="flex flex-col gap-4">{children}</div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export const vacancySchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -123,83 +147,84 @@ export function VacancyForm({
           </ul>
         </Alert>
       )}
-      <Card>
-        <CardContent className="p-5">
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <fieldset disabled={disabled} className="flex flex-col gap-4">
-              <FormField label="Title *" error={errors.title?.message}>
-                <Input placeholder="Senior Python Developer" {...field("title")} />
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+        <fieldset disabled={disabled} className="flex flex-col gap-5">
+          <FormSection icon={FileText} title="Role details">
+            <FormField label="Title *" error={errors.title?.message}>
+              <Input placeholder="Senior Python Developer" {...field("title")} />
+            </FormField>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Company">
+                <Input placeholder="Acme Corp" {...field("company_name")} />
               </FormField>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Company">
-                  <Input placeholder="Acme Corp" {...field("company_name")} />
-                </FormField>
-                <FormField label="Location">
-                  <Input placeholder="Remote / Berlin" {...field("location")} />
-                </FormField>
-              </div>
-              <FormField label="Job URL">
-                <Input placeholder="https://..." {...field("url")} />
+              <FormField label="Location">
+                <Input placeholder="Remote / Berlin" {...field("location")} />
               </FormField>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <FormField label="Salary">
-                  <Input placeholder="4000-6000 EUR" {...field("salary")} />
-                </FormField>
-                <FormField label="Work format">
-                  <Controller
-                    name="work_format"
-                    control={control}
-                    render={({ field: selectField }) => (
-                      <Select {...selectField}>
-                        {WORK_FORMATS.map((f) => (
-                          <option key={f} value={f}>
-                            {humanize(f)}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  />
-                </FormField>
-                <FormField label="Job type">
-                  <Controller
-                    name="job_type"
-                    control={control}
-                    render={({ field: selectField }) => (
-                      <Select {...selectField}>
-                        {JOB_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {humanize(t)}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  />
-                </FormField>
-              </div>
-              <FormField label="Description">
-                <Textarea
-                  rows={5}
-                  placeholder="Paste the job description..."
-                  {...field("description")}
+            </div>
+            <FormField label="Job URL">
+              <Input placeholder="https://..." {...field("url")} />
+            </FormField>
+          </FormSection>
+
+          <FormSection icon={Tag} title="Opportunity">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField label="Salary">
+                <Input placeholder="4000-6000 EUR" {...field("salary")} />
+              </FormField>
+              <FormField label="Work format">
+                <Controller
+                  name="work_format"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      {WORK_FORMATS.map((f) => (
+                        <option key={f} value={f}>
+                          {humanize(f)}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
                 />
               </FormField>
-            </fieldset>
-            {serverError && <p className="text-sm text-destructive">{serverError}</p>}
-            {renderActions ? (
-              renderActions(form)
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button type="submit" disabled={isSubmitting || submitting}>
-                  {submitLabel}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => navigate(-1)}>
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+              <FormField label="Job type">
+                <Controller
+                  name="job_type"
+                  control={control}
+                  render={({ field: selectField }) => (
+                    <Select {...selectField}>
+                      {JOB_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {humanize(t)}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
+              </FormField>
+            </div>
+            <FormField label="Description">
+              <Textarea
+                rows={5}
+                placeholder="Paste the job description..."
+                {...field("description")}
+              />
+            </FormField>
+          </FormSection>
+        </fieldset>
+        {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+        {renderActions ? (
+          renderActions(form)
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button type="submit" disabled={isSubmitting || submitting}>
+              {submitLabel}
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => navigate(-1)}>
+              Cancel
+            </Button>
+          </div>
+        )}
+      </form>
     </>
   );
 }

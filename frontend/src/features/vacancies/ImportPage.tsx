@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, AlertTriangle, CheckCircle2, CopyCheck, ExternalLink, Link2 } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  CopyCheck,
+  ExternalLink,
+  Globe,
+  Info,
+  Link2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { trackEvent } from "@/features/events/api";
+import { ThreadStepper } from "@/features/vacancies/ThreadStepper";
 import {
   extractImportErrorCode,
   importCommit,
@@ -17,6 +28,7 @@ import { checkDuplicates, type DuplicateCandidate } from "@/features/vacancies/a
 import { ApiError } from "@/shared/api/client";
 import { PageHeader } from "@/shared/layout/PageHeader";
 import { Alert } from "@/shared/ui/alert";
+import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -187,6 +199,66 @@ function DuplicateDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+const SUMMARY_FIELDS: Array<{ key: keyof ImportPreview["fields"]; label: string }> = [
+  { key: "title", label: "Title" },
+  { key: "company_name", label: "Company" },
+  { key: "location", label: "Location" },
+  { key: "salary", label: "Salary" },
+  { key: "work_format", label: "Work format" },
+  { key: "job_type", label: "Job type" },
+  { key: "description", label: "Description" },
+];
+
+/** "unknown" is the enum's empty value, so it does not count as extracted. */
+function foundFields(preview: ImportPreview) {
+  return SUMMARY_FIELDS.filter(({ key }) => {
+    const value = preview.fields[key];
+    return Boolean(value) && value !== "unknown";
+  });
+}
+
+function SummaryRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <span className="text-sm text-kumo-subtle">{label}</span>
+      <span className="truncate text-sm font-medium text-kumo-strong">{children}</span>
+    </div>
+  );
+}
+
+function ImportSummary({ preview }: { preview: ImportPreview }) {
+  const found = foundFields(preview);
+  const missing = SUMMARY_FIELDS.filter((f) => !found.includes(f));
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-subtle text-primary">
+            <Globe className="size-4" />
+          </span>
+          <h2 className="font-semibold text-kumo-strong">Import summary</h2>
+        </div>
+        <SummaryRow label="Source">{preview.platform}</SummaryRow>
+        <SummaryRow label="Fields found">
+          {found.length} of {SUMMARY_FIELDS.length}
+        </SummaryRow>
+        {missing.length > 0 && (
+          <div className="flex items-start justify-between gap-3 py-1.5">
+            <span className="flex items-center gap-2 text-sm text-kumo-subtle">
+              <span className="size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+              Missing
+            </span>
+            <span className="text-right text-sm font-medium text-kumo-strong">
+              {missing.map((f) => f.label).join(", ")}
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -390,12 +462,50 @@ export function ImportPage() {
       preview!.extraction_method === "none" ||
       !preview!.fields.title);
 
+  const reviewing = Boolean(preview || manualMode) && !isPreviewing;
+
   return (
-    <div className="max-w-3xl">
+    <div>
+      <Link
+        to="/vacancies"
+        className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-kumo-link hover:underline"
+      >
+        <ArrowLeft className="size-4" /> Back to vacancies
+      </Link>
+
       <PageHeader
-        title="Import a vacancy"
-        description="Paste a job posting link, review the details, then choose how to save it."
+        placement="body"
+        title={reviewing ? "Review imported vacancy" : "Import a vacancy"}
+        badge={
+          preview ? (
+            <Badge variant="muted">
+              <Globe className="mr-1 size-3" />
+              {preview.platform}
+            </Badge>
+          ) : undefined
+        }
+        description={
+          reviewing
+            ? "We found the role details. Check them before adding it to your thread."
+            : "Paste a job posting link, review the details, then choose how to save it."
+        }
       />
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0">
+      {reviewing && (
+        <Card className="mb-5">
+          <CardContent className="p-4 sm:p-5">
+            <ThreadStepper
+              steps={[
+                { label: "Link added", state: "done" },
+                { label: "Details found", state: preview ? "active" : "todo" },
+                { label: "Save vacancy", state: "todo" },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {!preview && !manualMode && !isPreviewing && (
         <Card>
@@ -589,6 +699,34 @@ export function ImportPage() {
           />
         </>
       )}
+        </div>
+
+        <aside className="flex flex-col gap-4">
+          {preview && <ImportSummary preview={preview} />}
+          <Card>
+            <CardContent className="p-5">
+              <h2 className="font-semibold text-kumo-strong">Your thread</h2>
+              <ThreadStepper
+                className="mt-5"
+                steps={[
+                  { label: "Vacancy", state: "active" },
+                  { label: "Applied", state: "todo" },
+                  { label: "Interview", state: "todo" },
+                  { label: "Offer", state: "todo" },
+                ]}
+              />
+            </CardContent>
+          </Card>
+          <Card className="bg-primary-subtle/40 shadow-none">
+            <CardContent className="flex gap-3 p-4">
+              <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+              <p className="text-sm leading-relaxed text-kumo-default">
+                Choose &ldquo;I already applied&rdquo; to move straight to Applied.
+              </p>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
 
       {pendingCommit && duplicateCandidates.length > 0 ? (
         <DuplicateDialog

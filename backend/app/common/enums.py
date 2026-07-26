@@ -27,6 +27,33 @@ ACTIVE_APPLICATION_STATUSES = [
 ]
 
 
+class VacancyStatus(StrEnum):
+    """Where a vacancy stands. Derived from its latest application, not stored."""
+
+    SAVED = "saved"
+    APPLIED = "applied"
+    INTERVIEW = "interview"
+    OFFER = "offer"
+    CLOSED = "closed"
+    ARCHIVED = "archived"
+
+
+class VacancyTab(StrEnum):
+    """Coarse grouping behind the tabs on the vacancies page."""
+
+    ALL = "all"
+    SAVED = "saved"
+    APPLIED = "applied"
+    ARCHIVED = "archived"
+
+
+class VacancySort(StrEnum):
+    NEWEST = "newest"
+    OLDEST = "oldest"
+    TITLE = "title"
+    COMPANY = "company"
+
+
 class UserRole(StrEnum):
     """How the user works with the system; chosen during onboarding."""
 

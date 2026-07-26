@@ -205,6 +205,325 @@
  * storyline and form can evolve without leaking page-specific styles.
  */
 @layer components {
+  .dashboard-import-card {
+    position: relative;
+    min-height: 11rem;
+    overflow: hidden;
+    border-color: var(--color-kumo-line);
+    background: var(--color-kumo-base);
+    box-shadow: var(--elevation-card);
+  }
+
+  /*
+   * "Add manually" is inlaid into the banner's top-right corner: an opaque
+   * canvas-coloured plate sits above the card and its rounded bottom-left
+   * corner notches the card outline behind it.
+   */
+  .vacancies-add-manually {
+    position: absolute;
+    z-index: 5;
+    top: -2rem;
+    right: 0;
+    padding: 0 0 0.9rem 1rem;
+    border-bottom-left-radius: 1.25rem;
+    background: var(--color-kumo-canvas);
+  }
+
+  .vacancies-add-manually-button {
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    padding: 0 1.4rem !important;
+    border-radius: 0.7rem;
+    border-color: var(--primary) !important;
+    color: var(--primary) !important;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .dashboard-import-layout {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    gap: 1.75rem;
+    padding: 1.75rem 2rem 1.625rem;
+  }
+
+  .dashboard-import-icon {
+    display: flex;
+    width: 4rem;
+    height: 4rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.25rem;
+    color: var(--primary);
+    background: var(--primary-subtle);
+  }
+
+  .dashboard-import-title {
+    margin: 0;
+    color: var(--text-color-kumo-strong);
+    font-size: 1.875rem;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+  .dashboard-import-description {
+    margin: 0.35rem 0 0;
+    color: var(--text-color-kumo-subtle);
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+
+  .dashboard-import-form {
+    display: grid;
+    grid-template-columns: minmax(0, 36.25rem) auto;
+    gap: 1rem;
+    align-items: start;
+    margin-top: 1rem;
+  }
+
+  .dashboard-import-input-wrap {
+    position: relative;
+    min-width: 0;
+  }
+
+  .dashboard-import-input-icon {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 1rem;
+    color: var(--text-color-kumo-subtle);
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .dashboard-import-input {
+    width: 100%;
+    height: 2.75rem !important;
+    border-radius: 0.75rem;
+    padding-left: 3rem !important;
+    background: var(--color-kumo-base);
+  }
+
+  .dashboard-import-button {
+    position: relative;
+    z-index: 3;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 10.25rem;
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    padding: 0 1.5rem !important;
+    border-radius: 0.625rem;
+    line-height: 1 !important;
+    text-align: center;
+  }
+
+  .dashboard-import-error {
+    position: absolute;
+    margin-top: 0.2rem;
+  }
+
+  .dashboard-import-thread-left,
+  .dashboard-import-thread-right {
+    position: absolute;
+    z-index: 1;
+    color: var(--primary);
+    pointer-events: none;
+  }
+
+  .dashboard-import-thread-left {
+    top: 5.125rem;
+    left: -1px;
+    width: 8.1rem;
+    height: 3.1rem;
+  }
+
+  .dashboard-import-thread-left-step-one-down,
+  .dashboard-import-thread-left-step-one-out,
+  .dashboard-import-thread-left-step-two-down,
+  .dashboard-import-thread-left-step-two-out,
+  .dashboard-import-thread-left-tail,
+  .dashboard-import-thread-dot,
+  .dashboard-import-thread-right-tail,
+  .dashboard-import-thread-right-dot,
+  .dashboard-import-thread-right-rise,
+  .dashboard-import-thread-right-top {
+    position: absolute;
+    display: block;
+  }
+
+  .dashboard-import-thread-left-step-one-down {
+    top: 0;
+    left: 0;
+    width: 2.6rem;
+    height: 1rem;
+    border-top: 2px solid currentcolor;
+    border-right: 2px solid currentcolor;
+    border-top-right-radius: 1rem;
+  }
+
+  .dashboard-import-thread-left-step-one-out {
+    top: 0.9rem;
+    left: 2.5rem;
+    width: 1.45rem;
+    height: 0.8rem;
+    border-bottom: 2px solid currentcolor;
+    border-left: 2px solid currentcolor;
+    border-bottom-left-radius: 0.8rem;
+  }
+
+  .dashboard-import-thread-left-step-two-down {
+    top: 1.6rem;
+    left: 3.85rem;
+    width: 1.55rem;
+    height: 0.75rem;
+    border-top: 2px solid currentcolor;
+    border-right: 2px solid currentcolor;
+    border-top-right-radius: 0.75rem;
+  }
+
+  .dashboard-import-thread-left-step-two-out {
+    top: 2.25rem;
+    left: 5.3rem;
+    width: 1.35rem;
+    height: 0.75rem;
+    border-bottom: 2px solid currentcolor;
+    border-left: 2px solid currentcolor;
+    border-bottom-left-radius: 0.75rem;
+  }
+
+  .dashboard-import-thread-left-tail {
+    top: calc(3rem - 2px);
+    left: 6.55rem;
+    width: 1.55rem;
+    border-top: 2px solid currentcolor;
+  }
+
+  .dashboard-import-thread-dot {
+    top: calc(3rem - 5px);
+    right: -2px;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: currentcolor;
+  }
+
+  .dashboard-import-thread-right {
+    top: 4.875rem;
+    right: 4.7rem;
+    left: 54.35rem;
+    height: 3.25rem;
+  }
+
+  .dashboard-import-thread-right-tail {
+    bottom: 0;
+    left: 0;
+    width: 4rem;
+    border-top: 2px solid currentcolor;
+  }
+
+  .dashboard-import-thread-right-dot {
+    bottom: -0.2rem;
+    left: 1.1rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: currentcolor;
+  }
+
+  .dashboard-import-thread-right-rise {
+    bottom: 0;
+    left: 3.9rem;
+    width: 2.9rem;
+    height: 1.65rem;
+    border-right: 2px solid currentcolor;
+    border-bottom: 2px solid currentcolor;
+    border-bottom-right-radius: 1.65rem;
+  }
+
+  .dashboard-import-thread-right-top {
+    top: 0;
+    right: 0;
+    left: 6.7rem;
+    height: 1.65rem;
+    border-top: 2px solid currentcolor;
+    border-left: 2px solid currentcolor;
+    border-top-left-radius: 1.65rem;
+  }
+
+  .dashboard-import-thread-target {
+    position: absolute;
+    top: -1rem;
+    right: -1rem;
+    display: flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
+    border-radius: 999px;
+    background: var(--primary-subtle);
+    box-shadow: 0 0 0 0.45rem color-mix(in srgb, var(--primary) 6%, transparent);
+  }
+
+  .dashboard-import-thread-target::before {
+    position: absolute;
+    width: 1.15rem;
+    height: 1.15rem;
+    border: 1.5px solid color-mix(in srgb, var(--primary) 58%, transparent);
+    border-radius: inherit;
+    content: "";
+  }
+
+  .dashboard-import-thread-target span {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: inherit;
+    background: var(--primary);
+  }
+
+  @media (max-width: 47.99rem) {
+    .dashboard-import-card {
+      min-height: 0;
+    }
+
+    .dashboard-import-layout {
+      grid-template-columns: 3rem minmax(0, 1fr);
+      gap: 1rem;
+      padding: 1.25rem;
+    }
+
+    .dashboard-import-icon {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 1rem;
+    }
+
+    .dashboard-import-title {
+      font-size: 1.35rem;
+    }
+
+    .dashboard-import-description {
+      font-size: 0.875rem;
+    }
+
+    .dashboard-import-form {
+      grid-template-columns: 1fr;
+    }
+
+    .dashboard-import-button {
+      width: 100% !important;
+    }
+
+    .dashboard-import-thread-left {
+      display: none;
+    }
+  }
+
   .auth-login-shell {
     display: grid;
     min-height: 100svh;
