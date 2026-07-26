@@ -7,7 +7,7 @@ const STATUS_STYLE: Record<RequirementFinding["status"], string> = {
   met: "bg-emerald-500",
   partial: "bg-amber-500",
   missing: "bg-rose-500",
-  unknown: "bg-kumo-subtle",
+  unknown: "bg-muted-foreground",
 };
 
 /**

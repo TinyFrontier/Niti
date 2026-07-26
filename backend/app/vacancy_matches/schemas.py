@@ -106,6 +106,17 @@ class MatchAnalysisOut(BaseModel):
     is_stale: bool = False
 
 
+class MatchSummaryOut(BaseModel):
+    """Just enough for a badge in a list."""
+
+    vacancy_id: uuid.UUID
+    status: MatchStatus
+    score: int | None
+    verdict: MatchVerdict | None
+    confidence: MatchConfidence | None
+    is_stale: bool
+
+
 class MatchRequest(BaseModel):
     model_config = _STRICT
 

@@ -78,7 +78,7 @@ function StatusPicker({ pending, onPick, onCancel }: StatusPickerProps) {
       <button
         type="button"
         aria-label="Cancel status change"
-        className="absolute inset-0 bg-kumo-strong/20"
+        className="absolute inset-0 bg-foreground/20"
         onClick={onCancel}
         tabIndex={-1}
       />

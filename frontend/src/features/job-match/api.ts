@@ -69,6 +69,22 @@ export interface MatchAnalysis {
   is_stale: boolean;
 }
 
+export interface MatchSummary {
+  vacancy_id: string;
+  status: MatchStatus;
+  score: number | null;
+  verdict: MatchVerdict | null;
+  confidence: MatchConfidence | null;
+  is_stale: boolean;
+}
+
+/** Latest analysis per vacancy, so a list needs one request rather than one per row. */
+export function getMatchSummaries(vacancyIds: string[]) {
+  if (vacancyIds.length === 0) return Promise.resolve([] as MatchSummary[]);
+  const query = vacancyIds.map((id) => `vacancy_ids=${id}`).join("&");
+  return api<MatchSummary[]>(`/vacancy-matches/summary?${query}`);
+}
+
 export function getLatestMatch(vacancyId: string) {
   return api<MatchAnalysis>(`/vacancies/${vacancyId}/matches/latest`);
 }

@@ -106,7 +106,7 @@ def queue(
 ) -> tuple[VacancyMatchAnalysis, bool]:
     """Return the analysis and whether an existing one was reused."""
     digest = analysis.input_hash(
-        vacancy, inputs.cv, inputs.profile.revision, get_settings().ai_model
+        vacancy, inputs.cv, inputs.profile.revision, get_settings().match_model()
     )
     if not force:
         existing = find_reusable(db, user, vacancy, digest)

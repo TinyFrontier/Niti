@@ -67,6 +67,9 @@ def run_task(db: Session, provider: AIProvider, task: VacancyMatchAnalysis) -> N
             vacancy=vacancy,
             cv_text=cv.extracted_text if cv else None,
             profile=profile,
+            # must be the model the input hash was built from, or a cached result
+            # would answer for a model that never ran
+            model=get_settings().match_model(),
         )
     except AIError as error:
         _fail(db, task, error.code)
@@ -102,7 +105,7 @@ def run_task(db: Session, provider: AIProvider, task: VacancyMatchAnalysis) -> N
         for flag in evidence.red_flags
     ]
     task.unknowns = list(evidence.unknowns)
-    task.model_name = get_settings().ai_model
+    task.model_name = get_settings().match_model()
     task.prompt_version = analysis.PROMPT_VERSION
     task.scoring_version = scoring.SCORING_VERSION
     task.completed_at = datetime.now(UTC)

@@ -28,12 +28,21 @@ class Settings(BaseSettings):
     # per-skill durations a CV never states, and an invented "7 years of Python"
     # that the user rubber-stamps becomes a fact the job matching then trusts.
     ai_model: str = "bytedance-seed/seed-1.6-flash"
+    # Matching is measured separately, and the answer differs: demanding a quote
+    # and a piece of evidence per finding constrains the model far more than
+    # profile extraction does, so the cheaper, faster model matches seed's
+    # accuracy here while it invented skill durations there. Empty falls back to
+    # ai_model.
+    ai_model_match: str = "google/gemini-2.5-flash-lite"
     # ~17s is this model's typical answer, and a corrective retry doubles it
     ai_timeout_seconds: float = 60.0
     # lets a deployment run the queue worker as a separate process instead
     match_worker_enabled: bool = True
     # hard cap on characters sent to the model, per document
     ai_max_input_chars: int = 40_000
+
+    def match_model(self) -> str:
+        return self.ai_model_match or self.ai_model
 
 
 @lru_cache

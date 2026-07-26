@@ -12,7 +12,7 @@ const STATUS_STYLES: Record<CVExtractionStatus, StatusStyle> = {
   pending: {
     label: "Not read",
     pill: "bg-kumo-recessed text-kumo-subtle",
-    dot: "bg-kumo-subtle",
+    dot: "bg-muted-foreground",
   },
   completed: {
     label: "Ready",

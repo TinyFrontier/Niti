@@ -12,7 +12,7 @@ const STATUS_STYLES: Record<VacancyStatus, StatusStyle> = {
   saved: {
     label: "Saved",
     pill: "bg-primary-subtle text-kumo-link",
-    dot: "bg-kumo-link",
+    dot: "bg-primary",
   },
   applied: {
     label: "Applied",
@@ -37,7 +37,7 @@ const STATUS_STYLES: Record<VacancyStatus, StatusStyle> = {
   archived: {
     label: "Archived",
     pill: "bg-kumo-recessed text-kumo-subtle",
-    dot: "bg-kumo-subtle",
+    dot: "bg-muted-foreground",
   },
 };
 

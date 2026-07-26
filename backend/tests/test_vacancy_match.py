@@ -477,6 +477,82 @@ def test_editing_the_vacancy_makes_the_analysis_stale(client, auth_headers, sess
     assert body["is_stale"] is True
 
 
+# --- summaries for the list -----------------------------------------------
+
+
+def test_summary_returns_the_latest_verdict_per_vacancy(client, auth_headers, session, ready):
+    client.post(f"/vacancies/{ready['vacancy_id']}/match", headers=auth_headers, json={})
+    _drain(session, MockAIProvider(EVIDENCE))
+
+    response = client.get(
+        "/vacancy-matches/summary",
+        headers=auth_headers,
+        params={"vacancy_ids": ready["vacancy_id"]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == [
+        {
+            "vacancy_id": ready["vacancy_id"],
+            "status": "completed",
+            "score": 100,
+            "verdict": "apply",
+            "confidence": "high",
+            "is_stale": False,
+        }
+    ]
+
+
+def test_summary_reports_only_the_newest_analysis(client, auth_headers, session, ready):
+    provider = MockAIProvider(EVIDENCE, {**EVIDENCE, "findings": EVIDENCE["findings"][:1]})
+    client.post(f"/vacancies/{ready['vacancy_id']}/match", headers=auth_headers, json={})
+    _drain(session, provider)
+    client.post(
+        f"/vacancies/{ready['vacancy_id']}/match", headers=auth_headers, json={"force": True}
+    )
+    _drain(session, provider)
+
+    body = client.get(
+        "/vacancy-matches/summary",
+        headers=auth_headers,
+        params={"vacancy_ids": ready["vacancy_id"]},
+    ).json()
+
+    history = client.get(f"/vacancies/{ready['vacancy_id']}/matches", headers=auth_headers).json()
+    assert len(history) == 2
+    assert len(body) == 1
+    assert body[0]["score"] == history[0]["score"]
+
+
+def test_summary_skips_vacancies_without_an_analysis(client, auth_headers, ready):
+    body = client.get(
+        "/vacancy-matches/summary",
+        headers=auth_headers,
+        params={"vacancy_ids": ready["vacancy_id"]},
+    ).json()
+
+    assert body == []
+
+
+def test_summary_is_scoped_to_the_owner(client, auth_headers, session, ready):
+    client.post(f"/vacancies/{ready['vacancy_id']}/match", headers=auth_headers, json={})
+    _drain(session, MockAIProvider(EVIDENCE))
+
+    email = f"summary-other-{uuid.uuid4().hex[:8]}@test.example"
+    client.post("/auth/register", json={"email": email, "password": "password123"})
+    token = client.post(
+        "/auth/login", json={"email": email, "password": "password123"}
+    ).json()["access_token"]
+
+    body = client.get(
+        "/vacancy-matches/summary",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"vacancy_ids": ready["vacancy_id"]},
+    ).json()
+
+    assert body == []
+
+
 # --- ownership ------------------------------------------------------------
 
 

@@ -112,7 +112,7 @@ function DuplicateDialog({
       <button
         type="button"
         aria-label="Close duplicate vacancy dialog"
-        className="absolute inset-0 bg-kumo-strong/20"
+        className="absolute inset-0 bg-foreground/20"
         onClick={onCancel}
         tabIndex={-1}
       />

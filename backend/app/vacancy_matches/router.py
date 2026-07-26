@@ -6,8 +6,9 @@ the provider again — that is what `input_hash` is for.
 """
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
 
 from app.auth.dependencies import CurrentUser, DbSession
@@ -20,7 +21,7 @@ from app.users.models import User
 from app.vacancies.models import Vacancy
 from app.vacancy_matches import analysis, service
 from app.vacancy_matches.models import VacancyMatchAnalysis
-from app.vacancy_matches.schemas import MatchAnalysisOut, MatchRequest
+from app.vacancy_matches.schemas import MatchAnalysisOut, MatchRequest, MatchSummaryOut
 
 router = APIRouter()
 vacancy_router = APIRouter()
@@ -97,6 +98,49 @@ def latest_match(
     return _as_out(db, row, vacancy, _profile_revision(db, current_user))
 
 
+@router.get("/summary", response_model=list[MatchSummaryOut])
+def match_summaries(
+    current_user: CurrentUser, db: DbSession, vacancy_ids: Annotated[list[uuid.UUID], Query()]
+) -> list[MatchSummaryOut]:
+    """Latest analysis per vacancy, for badges in a list.
+
+    One `DISTINCT ON` instead of a request per row: a list page would otherwise
+    fan out into as many round trips as it has vacancies.
+    """
+    if not vacancy_ids:
+        return []
+    rows = db.execute(
+        select(VacancyMatchAnalysis)
+        .where(
+            VacancyMatchAnalysis.user_id == current_user.id,
+            VacancyMatchAnalysis.vacancy_id.in_(vacancy_ids[:100]),
+        )
+        .distinct(VacancyMatchAnalysis.vacancy_id)
+        .order_by(VacancyMatchAnalysis.vacancy_id, VacancyMatchAnalysis.created_at.desc())
+    ).scalars()
+
+    revision = _profile_revision(db, current_user)
+    vacancies = {
+        vacancy.id: vacancy
+        for vacancy in db.execute(
+            select(Vacancy).where(
+                Vacancy.user_id == current_user.id, Vacancy.id.in_(vacancy_ids[:100])
+            )
+        ).scalars()
+    }
+    return [
+        MatchSummaryOut(
+            vacancy_id=row.vacancy_id,
+            status=row.status,
+            score=row.score,
+            verdict=row.verdict,
+            confidence=row.confidence,
+            is_stale=_as_out(db, row, vacancies.get(row.vacancy_id), revision).is_stale,
+        )
+        for row in rows
+    ]
+
+
 @router.get("/{analysis_id}", response_model=MatchAnalysisOut)
 def get_match(analysis_id: uuid.UUID, current_user: CurrentUser, db: DbSession) -> MatchAnalysisOut:
     row = get_owned_or_404(db, VacancyMatchAnalysis, analysis_id, current_user.id)
@@ -127,6 +171,6 @@ def _as_out(
     if row.status is not MatchStatus.COMPLETED or vacancy is None or profile_revision is None:
         return out
     cv = db.get(CVVersion, row.cv_version_id) if row.cv_version_id else None
-    current = analysis.input_hash(vacancy, cv, profile_revision, get_settings().ai_model)
+    current = analysis.input_hash(vacancy, cv, profile_revision, get_settings().match_model())
     out.is_stale = row.input_hash != current
     return out

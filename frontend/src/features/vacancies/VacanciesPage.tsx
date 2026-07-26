@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "@cloudflare/kumo/components/tabs";
@@ -8,7 +8,9 @@ import {
   Archive,
   ArchiveRestore,
   Briefcase,
+  AlertTriangle,
   ExternalLink,
+  Loader2,
   MoreVertical,
   Pencil,
   Plus,
@@ -30,6 +32,8 @@ import {
   type VacancyTab,
   type WorkFormat,
 } from "@/features/vacancies/api";
+import { getMatchSummaries, type MatchSummary } from "@/features/job-match/api";
+import { VerdictBadge } from "@/features/job-match/VerdictBadge";
 import { PasteLinkCard } from "@/features/vacancies/PasteLinkCard";
 import { VacancyStatusBadge } from "@/features/vacancies/VacancyStatusBadge";
 import { DataTable, type Column } from "@/shared/data-table/DataTable";
@@ -152,7 +156,28 @@ function RowActions({ vacancy }: { vacancy: Vacancy }) {
   );
 }
 
-const columns: Column<Vacancy>[] = [
+/** Badge for the list: the verdict if there is one, quiet otherwise. */
+function FitCell({ fit }: { fit: MatchSummary | undefined }) {
+  if (!fit) return <span className="text-muted-foreground">—</span>;
+  if (fit.status === "processing") {
+    return <Loader2 className="size-3.5 animate-spin text-muted-foreground" />;
+  }
+  if (fit.status === "failed" || !fit.verdict) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <VerdictBadge verdict={fit.verdict} score={fit.score} className="-ml-2" />
+      {fit.is_stale && (
+        <span title="The vacancy, CV or profile changed after this analysis">
+          <AlertTriangle className="size-3 text-amber-500" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+const buildColumns = (fits: Map<string, MatchSummary>): Column<Vacancy>[] => [
   {
     key: "role",
     header: "Role",
@@ -173,6 +198,12 @@ const columns: Column<Vacancy>[] = [
     header: "Status",
     // pulled left by the pill's own padding so the label lines up with the header
     render: (vacancy) => <VacancyStatusBadge status={vacancy.status} className="-ml-2" />,
+  },
+  {
+    key: "fit",
+    header: "Fit",
+    className: "w-28",
+    render: (vacancy) => <FitCell fit={fits.get(vacancy.id)} />,
   },
   {
     key: "location",
@@ -231,6 +262,21 @@ export function VacanciesPage() {
     queryKey: ["vacancies", "stats", statsParams],
     queryFn: () => getVacancyStats(statsParams),
   });
+
+  const pageIds = (data?.items ?? []).map((vacancy) => vacancy.id);
+  const { data: fits } = useQuery({
+    queryKey: ["match-summaries", pageIds],
+    queryFn: () => getMatchSummaries(pageIds),
+    enabled: pageIds.length > 0,
+    // an analysis queued by the importer finishes while the user is on this page
+    refetchInterval: (query) =>
+      query.state.data?.some((fit) => fit.status === "processing") ? 4000 : false,
+    refetchIntervalInBackground: true,
+  });
+  const columns = useMemo(
+    () => buildColumns(new Map((fits ?? []).map((fit) => [fit.vacancy_id, fit]))),
+    [fits],
+  );
 
   const resetPage = <T,>(apply: (value: T) => void) => (value: T) => {
     apply(value);
