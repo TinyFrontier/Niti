@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # so it can be swapped without code changes.
     open_router_api_key: str = ""
     ai_base_url: str = "https://openrouter.ai/api/v1"
-    ai_model: str = "google/gemini-2.5-flash"
+    ai_model: str = "google/gemini-2.5-flash-lite"
     ai_timeout_seconds: float = 30.0
     # hard cap on characters sent to the model, per document
     ai_max_input_chars: int = 40_000
