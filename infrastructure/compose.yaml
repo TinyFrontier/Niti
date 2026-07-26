@@ -43,7 +43,7 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: "${DOCKER_NETWORK_NAME:-niti}"
-      traefik.http.routers.frontend.rule: "Host(`${FRONTEND_HOST:-useniti.xyz}`)"
+      traefik.http.routers.frontend.rule: "Host(`${APP_HOST:-app.useniti.xyz}`)"
       traefik.http.routers.frontend.entrypoints: websecure
       traefik.http.routers.frontend.tls: "true"
       traefik.http.routers.frontend.tls.certresolver: letsencrypt
@@ -61,14 +61,14 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
-      CORS_ORIGINS: '["https://${FRONTEND_HOST:-useniti.xyz}"]'
+      CORS_ORIGINS: '["https://${APP_HOST:-app.useniti.xyz}"]'
       UPLOAD_DIR: /app/uploads
       BACKEND_WORKERS: ${BACKEND_WORKERS:-2}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       API_BASE_URL: "https://${API_HOST:-api.useniti.xyz}"
-      FRONTEND_URL: "https://${FRONTEND_HOST:-useniti.xyz}"
-      COOKIE_DOMAIN: ".${FRONTEND_HOST:-useniti.xyz}"
+      FRONTEND_URL: "https://${APP_HOST:-app.useniti.xyz}"
+      COOKIE_DOMAIN: "${COOKIE_DOMAIN:-.useniti.xyz}"
       COOKIE_SECURE: "true"
       DEBUG: "false"
       # Compose forwards only what is listed here, so without these the key in

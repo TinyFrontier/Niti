@@ -960,10 +960,10 @@ export function LandingPage() {
             <a href="#control">Your control</a>
           </nav>
           <div className="header-actions">
-            <a className="sign-in-link" href="https://useniti.xyz/login">
+            <a className="sign-in-link" href="https://app.useniti.xyz/login">
               Sign in
             </a>
-            <a className="header-cta" href="https://useniti.xyz/register">
+            <a className="header-cta" href="https://app.useniti.xyz/register">
               Start your thread <ArrowIcon />
             </a>
           </div>
@@ -996,7 +996,7 @@ export function LandingPage() {
                 — from saved to offer.
               </p>
               <div className="hero-actions">
-                <a className="primary-cta" href="https://useniti.xyz/register">
+                <a className="primary-cta" href="https://app.useniti.xyz/register">
                   Start your thread <ArrowIcon />
                 </a>
                 <a className="secondary-cta" href="#demo">
@@ -1189,7 +1189,7 @@ export function LandingPage() {
           <span className="section-eyebrow">Your next move</span>
           <h2>Your next move deserves more than another spreadsheet.</h2>
           <p>Start your thread with Niti.</p>
-          <a className="primary-cta large" href="https://useniti.xyz/register">
+          <a className="primary-cta large" href="https://app.useniti.xyz/register">
             Start your thread <ArrowIcon />
           </a>
         </section>
@@ -1205,7 +1205,7 @@ export function LandingPage() {
           <nav aria-label="Footer navigation">
             <a href="#how-it-works">How it works</a>
             <a href="#job-match">Job Match</a>
-            <a href="https://useniti.xyz/login">Sign in</a>
+            <a href="https://app.useniti.xyz/login">Sign in</a>
           </nav>
         </div>
         <div className="footer-bottom">

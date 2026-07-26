@@ -38,6 +38,9 @@ test("server-renders the Niti product landing", async () => {
   assert.match(html, /One link\. One clear decision\. One thread\./);
   assert.match(html, /Evidence-backed matches/);
   assert.match(html, /Your experience stays yours\./);
+  assert.match(html, /https:\/\/app\.useniti\.xyz\/login/);
+  assert.match(html, /https:\/\/app\.useniti\.xyz\/register/);
+  assert.doesNotMatch(html, /https:\/\/useniti\.xyz\/(?:login|register)/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Starter Project/i);
 });
 

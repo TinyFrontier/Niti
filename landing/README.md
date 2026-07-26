@@ -20,5 +20,5 @@ npm run lint
 npm test
 ```
 
-The primary product CTAs lead to `https://useniti.xyz/register` and
-`https://useniti.xyz/login`.
+The primary product CTAs lead to `https://app.useniti.xyz/register` and
+`https://app.useniti.xyz/login`.

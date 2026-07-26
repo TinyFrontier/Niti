@@ -2,12 +2,14 @@
 
 Niti — monorepo приложения для управления поиском работы. Backend построен на
 FastAPI, Granian, SQLAlchemy и Alembic; frontend — на React, TypeScript и Vite.
-Production-окружение запускается через Docker Compose и Traefik v3.
+Публичный лендинг находится в `landing`, а production-приложение запускается
+через Docker Compose и Traefik v3.
 
 ## Структура
 
 ```text
 Niti/
+├── landing/                  # публичный лендинг для useniti.xyz
 ├── frontend/                 # React/Vite и production-образ Nginx
 ├── backend/                  # FastAPI/Granian, Alembic и production-образ
 ├── infrastructure/
@@ -87,7 +89,8 @@ docker compose -f infrastructure/compose.yaml down
 | Сервис | Назначение | Доступ |
 | --- | --- | --- |
 | `traefik` | TLS, Let's Encrypt, HTTP → HTTPS, маршрутизация, dashboard | `80`, `443` |
-| `frontend` | Собранный React SPA под Nginx | `https://useniti.xyz` |
+| `landing` | Публичный продуктовый лендинг | `https://useniti.xyz` |
+| `frontend` | Собранный React SPA под Nginx | `https://app.useniti.xyz` |
 | `backend` | FastAPI под Granian | `https://api.useniti.xyz` |
 | `postgres` | PostgreSQL 16 и `pg_trgm` | внутри сети; локально `127.0.0.1:5432` |
 
@@ -104,9 +107,10 @@ Compose читает корневой `.env`. Файл не должен поп�
 
 | Переменная | Описание |
 | --- | --- |
-| `FRONTEND_HOST` | публичный домен frontend |
+| `APP_HOST` | публичный домен приложения |
 | `API_HOST` | публичный домен API; встраивается в frontend при сборке |
 | `TRAEFIK_HOST` | публичный домен dashboard |
+| `COOKIE_DOMAIN` | домен session cookie; production по умолчанию `.useniti.xyz` |
 | `LETSENCRYPT_EMAIL` | email для ACME/Let's Encrypt |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | настройки PostgreSQL |
 | `DATABASE_URL` | SQLAlchemy DSN backend; пароль должен совпадать с `POSTGRES_PASSWORD` |
@@ -134,9 +138,10 @@ htpasswd -nbB admin 'strong-dashboard-password'           # Basic Auth
 
 1. Установите Docker Engine и Compose v2. Откройте входящие TCP-порты `80` и
    `443`; PostgreSQL наружу открывать не нужно.
-2. Создайте DNS A/AAAA-записи `useniti.xyz`, `api.useniti.xyz` и
-   `traefik.useniti.xyz`, указывающие на VPS. Для выпуска сертификатов порт 80
-   должен быть доступен из интернета.
+2. Создайте DNS A/AAAA-записи `app.useniti.xyz`, `api.useniti.xyz` и
+   `traefik.useniti.xyz`, указывающие на VPS. Apex-домен `useniti.xyz`
+   направляется на хостинг лендинга. Для выпуска сертификатов приложения порт
+   80 должен быть доступен из интернета.
 3. Клонируйте репозиторий на VPS, выполните `cp .env.example .env`, задайте
    production-секреты, email и домены.
 4. Запустите:
@@ -146,7 +151,7 @@ htpasswd -nbB admin 'strong-dashboard-password'           # Basic Auth
    ```
 
 5. Проверьте `docker compose -f infrastructure/compose.yaml ps`, логи Traefik и
-   ответы `https://api.useniti.xyz/health`, `https://useniti.xyz`.
+   ответы `https://api.useniti.xyz/health`, `https://app.useniti.xyz`.
 
 Для обновления получите новую версию кода и повторите `up -d --build`.
 Именованные volumes при этом сохраняются. Перед обновлением схемы рекомендуется
